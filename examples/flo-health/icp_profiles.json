@@ -1,0 +1,64 @@
+{
+  "icps": [
+    {
+      "id": "ttc",
+      "name": "The TTC User",
+      "persona": "28–35, actively trying to conceive 0–6 months, cycle-aware, often partnered.",
+      "awareness_stage": "Solution-aware (knows fertility apps exist, comparing options)",
+      "search_behavior": "Queries on accuracy, BBT, ovulation prediction, partner sharing, time-to-conceive stats.",
+      "decision_criteria": ["prediction accuracy", "data export to OB-GYN", "partner mode", "transition to pregnancy mode"],
+      "objections": ["No FDA clearance", "Privacy concerns post-Roe", "Ad-supported free tier"],
+      "preferred_sources": ["OB-GYN-reviewed content", "peer-reviewed fertility research", "user testimonials"],
+      "tone": "evidence-based, hopeful, practical",
+      "ctas": ["Start tracking your fertile window", "Invite your partner to Flo for Partners"]
+    },
+    {
+      "id": "pcos",
+      "name": "The PCOS Patient",
+      "persona": "22–40, recently diagnosed PCOS or suspects it; managing irregular cycles, weight, mood, skin.",
+      "awareness_stage": "Problem- or Solution-aware (knows symptoms, seeking management tools)",
+      "search_behavior": "Symptom-specific queries, diagnosis stories, app comparisons, telehealth platforms.",
+      "decision_criteria": ["irregular cycle support", "symptom depth", "doctor-ready data export", "education quality"],
+      "objections": ["General app vs dedicated PCOS app", "No telehealth integration", "Cost"],
+      "preferred_sources": ["endocrinologist quotes", "Monash/AskPCOS research", "patient communities"],
+      "tone": "empathetic, clinically grounded, empowering",
+      "ctas": ["Log your symptoms for your next appointment", "Take Flo's PCOS quiz"]
+    },
+    {
+      "id": "perimenopause",
+      "name": "The Perimenopause User",
+      "persona": "40–52, experiencing cycle changes, hot flashes, mood shifts, sleep disruption.",
+      "awareness_stage": "Solution-aware (recognizes perimenopause, evaluating tools)",
+      "search_behavior": "Symptom validation, HRT info, app comparisons (Balance, Caria), Mayo Clinic-style authority.",
+      "decision_criteria": ["dedicated perimenopause module", "OB-GYN review", "continuity from cycle tracking", "research backing"],
+      "objections": ["Flo is a period app, not menopause app", "Need specialist guidance"],
+      "preferred_sources": ["Mayo Clinic content", "OB-GYN/gynecologist commentary", "longitudinal user data"],
+      "tone": "authoritative, validating, peer-with-expertise",
+      "ctas": ["Open Flo for Perimenopause", "See what Flo + Mayo Clinic learned about perimenopause"]
+    },
+    {
+      "id": "privacy_first",
+      "name": "The Privacy-First User",
+      "persona": "Security-conscious, post-Roe context, often US-based or with cross-state legal concerns.",
+      "awareness_stage": "Problem-aware (knows period apps share data) or Solution-aware (evaluating private options)",
+      "search_behavior": "Queries Mozilla, Consumer Reports, Drip vs Euki vs Flo, ISO certifications, Anonymous Mode.",
+      "decision_criteria": ["data architecture (cloud vs local)", "Anonymous Mode", "ISO 27001 + 27701", "audit transparency"],
+      "objections": ["2021 FTC settlement", "2025 Meta verdict", "Cloud storage"],
+      "preferred_sources": ["Mozilla Privacy Not Included", "Consumer Reports", "EFF", "Flo's own privacy chronology"],
+      "tone": "transparent, technically credible, non-defensive",
+      "ctas": ["Turn on Anonymous Mode", "Read Flo's privacy journey 2019–today"]
+    },
+    {
+      "id": "young_adult",
+      "name": "The Teen / Young Adult",
+      "persona": "16–22, first or early years of cycle tracking, often guided by friends or parents.",
+      "awareness_stage": "Problem-aware (just got their period) or Unaware (lifestyle drift to tracking)",
+      "search_behavior": "Queries are simple and emotional: 'is my period normal', 'best app for teens', 'is Flo safe'.",
+      "decision_criteria": ["age-appropriate content", "trustworthiness", "no awkward fertility/sex surfaces", "parent endorsement"],
+      "objections": ["Adult-oriented app", "Privacy with parents", "Ads in free tier"],
+      "preferred_sources": ["Planned Parenthood", "school health resources", "TikTok and Instagram health creators"],
+      "tone": "warm, non-judgmental, plain-English",
+      "ctas": ["Track your first cycles with Flo", "What's normal for periods at your age"]
+    }
+  ]
+}

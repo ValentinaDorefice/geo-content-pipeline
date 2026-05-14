@@ -1,0 +1,45 @@
+{
+  "_instructions": "Fill in this template for any new brand. Replace placeholder values. Keep all keys present. Save as audit_input.json in your client's config/ folder.",
+
+  "brand": "[Brand Name]",
+  "domain": "[brand-domain.com]",
+  "baseline_month": "[YYYY-MM]",
+  "baseline_engine": "ChatGPT (with browsing)",
+  "archetypes": ["category", "comparison", "vertical", "sub-segment", "attribute"],
+
+  "_prompts_guidance": "List 14 prompts the brand cares about, balanced ~3 category / 2 comparison / 3 vertical / 2 sub-segment / 4 attribute. Each prompt is what a real user types into ChatGPT.",
+  "prompts": [
+    {
+      "id": "P01",
+      "text": "[exact user query — what someone types into ChatGPT]",
+      "archetype": "category",
+      "baseline": {
+        "cited": true,
+        "position": "1",
+        "sentiment": 4,
+        "winners": ["Brand", "Competitor1", "Competitor2"]
+      }
+    },
+    {
+      "id": "P02",
+      "text": "[user query]",
+      "archetype": "comparison",
+      "baseline": {
+        "cited": false,
+        "position": "absent",
+        "sentiment": 0,
+        "winners": ["Competitor1", "Competitor2"],
+        "drag": "[reason if brand cited negatively or absent]"
+      }
+    }
+  ],
+
+  "_buried_assets_guidance": "Internal content the brand owns but doesn't surface. Newsroom press releases, peer-reviewed research, certifications, partnerships, unique features. Each should be a real URL where it currently sits, plus its strategic value.",
+  "buried_assets": [
+    {"name": "[Asset name — e.g. 'Mayo Clinic perimenopause study']", "url": "https://brand.com/newsroom/buried-path"},
+    {"name": "[Another asset]", "url": "https://brand.com/research/another-buried-path"}
+  ],
+
+  "_lifecycle_wedge_guidance": "One paragraph describing the brand's structurally non-copyable claim. Often: scale + lifecycle + data history + unique product feature. This will appear in every category page the GEO Writer produces.",
+  "lifecycle_wedge": "[1-2 sentences describing what makes this brand uniquely positioned — features competitors structurally cannot replicate]"
+}

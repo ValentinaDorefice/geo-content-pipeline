@@ -1,0 +1,32 @@
+# Pipeline runtime config — copy to client's config/pipeline.yaml and adjust
+
+model:
+  # Aliases auto-resolve to latest version — safer than pinned dates.
+  primary: "claude-sonnet-4-5"        # reasoning-heavy stages (Topic Extractor, Angle Agent)
+  writer: "claude-sonnet-4-5"         # long-form generation (GEO Writer)
+  fast: "claude-haiku-4-5"            # cheap structured tasks (Question Generator)
+
+generation:
+  total_questions: 40
+  questions_per_archetype: 8          # 40 / 5
+  answer_max_tokens: 2000
+  answer_concurrency: 4               # parallel answer calls (raise for speed; watch cost caps)
+  topics_to_extract: 10
+  icp_variants_per_topic: 5           # adjust based on the ICP count in icp_profiles.json
+  article_word_target: 1500
+
+cost_caps:
+  hard_max_usd_per_run: 50            # pipeline aborts if estimate exceeds
+  warn_at_usd: 15
+
+publishing:
+  cms: "wordpress"
+  default_status: "draft"             # never auto-publish to live; human sign-off required
+  default_author_id: 1
+  default_category_id: 2
+  scheduling_pattern: "weekday-mornings"   # publish at 9am Mon/Wed/Fri
+
+monitoring:
+  engines: ["chatgpt", "perplexity", "claude", "gemini"]
+  cadence: "weekly"
+  output_path: "../[BRAND]_GEO_Prompt_Tracking.xlsx"

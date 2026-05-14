@@ -1,0 +1,29 @@
+{
+  "brand": "Flo Health",
+  "domain": "flo.health",
+  "baseline_month": "2026-05",
+  "baseline_engine": "ChatGPT (with browsing)",
+  "archetypes": ["category", "comparison", "vertical", "sub-segment", "attribute"],
+  "prompts": [
+    {"id": "P01", "text": "What are the best female wellness apps?",       "archetype": "category",    "baseline": {"cited": true,  "position": "3+",  "sentiment": 3, "winners": ["Headspace", "MyFitnessPal", "Clue", "Balance", "miora"]}},
+    {"id": "P02", "text": "What's the best period tracker app?",            "archetype": "category",    "baseline": {"cited": true,  "position": "1",   "sentiment": 4, "winners": ["Flo", "Clue", "Natural Cycles"]}},
+    {"id": "P03", "text": "Is Flo period tracker safe?",                    "archetype": "attribute",   "baseline": {"cited": true,  "position": "—",   "sentiment": 2, "winners": ["Drip", "Euki", "Periodical"], "drag": "FTC settlement"}},
+    {"id": "P04", "text": "What's the most private period tracking app?",   "archetype": "attribute",   "baseline": {"cited": false, "position": "absent", "sentiment": 0, "winners": ["Drip", "Euki", "Periodical", "Embody", "Gloz"]}},
+    {"id": "P05", "text": "Flo vs Clue — which should I use?",              "archetype": "comparison",  "baseline": {"cited": true,  "position": "2",   "sentiment": 2, "winners": ["Clue"]}},
+    {"id": "P06", "text": "What's the best app for perimenopause?",         "archetype": "vertical",    "baseline": {"cited": false, "position": "absent", "sentiment": 0, "winners": ["Balance", "Caria", "Perry", "Midday", "Clue Perimenopause"]}},
+    {"id": "P07", "text": "What's the best app for trying to conceive?",    "archetype": "category",    "baseline": {"cited": true,  "position": "1",   "sentiment": 4, "winners": ["Flo", "Ovia", "Premom", "Fertility Friend"], "note": "outdated 35M stat cited"}},
+    {"id": "P08", "text": "What's the best pregnancy tracker?",             "archetype": "category",    "baseline": {"cited": true,  "position": "1",   "sentiment": 5, "winners": ["Flo", "What to Expect", "Pregnancy+", "BabyCenter", "The Bump"]}},
+    {"id": "P09", "text": "Is Flo or Apple Health better?",                 "archetype": "comparison",  "baseline": {"cited": true,  "position": "—",   "sentiment": 3, "winners": [], "drag": "HealthKit sync removed"}},
+    {"id": "P10", "text": "What's the best free period tracker?",           "archetype": "attribute",   "baseline": {"cited": false, "position": "absent", "sentiment": 0, "winners": ["Euki", "Drip", "Belle", "My Cycle", "Clue free"]}},
+    {"id": "P11", "text": "What's the best app for PCOS?",                  "archetype": "vertical",    "baseline": {"cited": false, "position": "absent", "sentiment": 0, "winners": ["AskPCOS", "Uvi Health", "Gro PCOS", "Allara", "Veera"]}},
+    {"id": "P12", "text": "What's the best app for endometriosis?",         "archetype": "vertical",    "baseline": {"cited": false, "position": "absent", "sentiment": 0, "winners": ["Phendo", "QENDO", "Bearable", "Matilda", "Flutter"]}},
+    {"id": "P13", "text": "Flo for teens — should teens use Flo?",          "archetype": "sub-segment", "baseline": {"cited": true,  "position": "—",   "sentiment": 1, "winners": ["Spot On (Planned Parenthood)", "Luna", "Magicgirl"], "drag": "active anti-recommendation"}},
+    {"id": "P14", "text": "Flo for IUD users — can I track my IUD on Flo?", "archetype": "sub-segment", "baseline": {"cited": true,  "position": "—",   "sentiment": 3, "winners": ["Spot On"], "drag": "confusing grey-circle UX"}}
+  ],
+  "buried_assets": [
+    {"name": "Mayo Clinic perimenopause study", "url": "https://flo.health/newsroom/flo-health-and-mayo-clinic-collaborate-to-publish-first-of-its-kind-global-digital-study-on-perimenopause-awareness"},
+    {"name": ">50% endometriosis diagnosis study", "url": "https://flo.health/newsroom/new-flo-health-study-suggests-women-could-get-endometriosis-diagnoses-more-than-50-sooner"},
+    {"name": "Flo Anonymous Mode (post-quantum, open-sourced)", "url": "https://flo.health/privacy-portal"}
+  ],
+  "lifecycle_wedge": "cycle → TTC → pregnancy → postpartum → perimenopause → menopause in one app; 380M+ members; only fertility/period app with Flo for Partners; only with ISO 27001 + 27701; only with the Mayo Clinic perimenopause research collaboration."
+}
