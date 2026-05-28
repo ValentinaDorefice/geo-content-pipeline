@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flo Health · AI Visibility Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #07041A; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: #1D1838; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    // localStorage-backed storage polyfill (replaces Claude artifact storage API)
+    window.storage = {
+      get: async function(key) {
+        try {
+          var val = localStorage.getItem('flo_llmo_' + key);
+          return val !== null ? { value: val } : null;
+        } catch(e) { return null; }
+      },
+      set: async function(key, value) {
+        try {
+          localStorage.setItem('flo_llmo_' + key, value);
+          return { key: key, value: value };
+        } catch(e) { return null; }
+      },
+      delete: async function(key) {
+        try {
+          localStorage.removeItem('flo_llmo_' + key);
+          return { key: key, deleted: true };
+        } catch(e) { return null; }
+      }
+    };
+  </script>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } = Recharts;
+
+
+const C={bg:"#07041A",surface:"#0E0B27",surfaceAlt:"#161235",border:"#231D46",borderB:"#342D60",text:"#EDE8F7",muted:"#7868A8",faint:"#1D1838",accent:"#BE8FFF",accentDim:"rgba(190,143,255,0.14)",green:"#4ADE80",greenDim:"rgba(74,222,128,0.1)",amber:"#FBBF24",amberDim:"rgba(251,191,36,0.1)",rose:"#FF6B8A",roseDim:"rgba(255,107,138,0.12)",slate:"#5B5280",slateDim:"rgba(91,82,128,0.12)",lav:"#C4B5FD",lavDim:"rgba(196,181,253,0.12)"};
+const EC={chatgpt:"#10A37F",claude:"#CC785C",gemini:"#4285F4",perplexity:"#20808D"};
+const BC={"Flo":"#BE8FFF","Clue":"#FF6B8A","Natural Cycles":"#4ADE80","Balance":"#FBBF24","AskPCOS":"#2DD4BF","Phendo":"#818CF8","Spot On":"#FB923C","Drip/Euki":"#94A3B8"};
+const MAIN_BRANDS=["Flo","Clue","Natural Cycles","Balance","Spot On","Drip/Euki"];
+const COMP_OPTIONS=["Clue","Natural Cycles","Balance","AskPCOS","Phendo","Spot On","Drip/Euki","Apple Health"];
+
+function bsCI(arr,nr=2000){if(!arr||arr.length<2)return null;const n=arr.length,mu=arr.reduce((a,b)=>a+b,0)/n;const boot=Array.from({length:nr},()=>{let s=0;for(let i=0;i<n;i++)s+=arr[Math.floor(Math.random()*n)];return s/n;}).sort((a,b)=>a-b);return{mean:mu,lower:boot[Math.floor(nr*0.025)],upper:boot[Math.floor(nr*0.975)],n};}
+function confOf(n){if(n===0)return{bg:C.faint,fg:C.muted,badge:"NOT RUN"};if(n<=2)return{bg:C.roseDim,fg:C.rose,badge:"FALSE PRECISION"};if(n<=6)return{bg:C.amberDim,fg:C.amber,badge:"MED CONFIDENCE"};if(n<=9)return{bg:C.greenDim,fg:C.green,badge:"HIGH CONFIDENCE"};return{bg:"#162918",fg:C.green,badge:"SCHULTE N>=10"};}
+
+function Sparkline({data,color,w=64,h=24}){
+  const v=data.filter(x=>x!=null);
+  if(v.length<2)return <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:color||C.muted}}>{v[0]!=null?Number(v[0]).toFixed(1):"---"}</span>;
+  const min=Math.min(...v),max=Math.max(...v),rng=max-min||0.001;
+  let xi=0;
+  const pts=data.map((val)=>{if(val==null)return null;const x=(xi++/(v.length-1))*w,y=h-((val-min)/rng)*h;return x.toFixed(1)+","+y.toFixed(1);}).filter(Boolean).join(" ");
+  const last=v[v.length-1],prev=v[v.length-2];
+  const dir=last>prev+0.05?"up":last<prev-0.05?"dn":"---";
+  const dc=last>prev+0.05?C.green:last<prev-0.05?C.rose:C.muted;
+  const lastPt=pts.split(" ").at(-1)?.split(",");
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:"5px"}}>
+      <svg width={w} height={h}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>{lastPt&&<circle cx={lastPt[0]} cy={lastPt[1]} r="2.5" fill={color}/>}</svg>
+      <span style={{color:dc,fontSize:"11px",fontWeight:700}}>{dir==="up"?"↑":dir==="dn"?"↓":"→"}</span>
+      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color}}>{Number(last).toFixed(1)}</span>
+    </div>
+  );
+}
+
+const BASELINE=[
+  {p:"P01",e:"chatgpt",c:true, po:1,   s:4.2,u:true, cl:true, h:false,rec:true, competitors:[],narrative:"Flo is consistently recommended as the best period tracking app, praised for accurate predictions and comprehensive cycle insights.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P02",e:"chatgpt",c:true, po:1,   s:4.0,u:true, cl:true, h:false,rec:true, competitors:[],narrative:"For beginners, Flo is the most intuitive option with guided onboarding and clear cycle predictions.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P03",e:"chatgpt",c:true, po:1,   s:4.1,u:true, cl:true, h:false,rec:true, competitors:[],narrative:"Flo's pregnancy tracker is the most downloaded, offering week-by-week guidance backed by medical review.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P04",e:"chatgpt",c:true, po:2,   s:2.8,u:true, cl:false,h:false,rec:false,competitors:["Clue"],narrative:"Flo and Clue are the two dominant options. Clue has a stronger privacy reputation; Flo is more popular but has faced data-sharing concerns.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P05",e:"chatgpt",c:true, po:2,   s:3.1,u:false,cl:false,h:false,rec:false,competitors:["Apple Health"],narrative:"Flo offers more specialised cycle features; Apple Health integrates broadly but lacks Flo's depth.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P06",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,competitors:["Balance","Natural Cycles"],narrative:"Balance by Dr. Louise Newson is the leading perimenopause app, specifically designed for this stage of life.",ts:"2026-05-13",note:"Absent"},
+  {p:"P07",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,competitors:["AskPCOS"],narrative:"AskPCOS from Monash University is the most evidence-based option for PCOS symptom and cycle tracking.",ts:"2026-05-13",note:"Absent"},
+  {p:"P08",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,competitors:["Phendo"],narrative:"Phendo from Columbia University is purpose-built for endometriosis symptom tracking with peer-reviewed backing.",ts:"2026-05-13",note:"Absent"},
+  {p:"P09",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,competitors:["Clue","Drip/Euki"],narrative:"Clue has a solid free tier; Drip and Euki are free, privacy-first, and open-source.",ts:"2026-05-13",note:"Absent"},
+  {p:"P10",e:"chatgpt",c:true, po:3,   s:1.8,u:false,cl:false,h:false,rec:false,competitors:["Clue","Spot On"],narrative:"Flo has faced criticism for sharing teen user data. Spot On by Planned Parenthood is specifically designed for teens and contraception.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P11",e:"chatgpt",c:true, po:2,   s:2.9,u:true, cl:false,h:false,rec:false,competitors:["Clue","Drip/Euki"],narrative:"Flo today is much safer than in 2020-21. They added Anonymous Mode after FTC action. But historical data-sharing trust damage still surfaces.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P12",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,competitors:["Drip/Euki"],narrative:"Drip and Euki use on-device storage with no server sync, the most private options available.",ts:"2026-05-13",note:"Absent"},
+  {p:"P13",e:"chatgpt",c:true, po:3,   s:2.7,u:true, cl:false,h:false,rec:false,competitors:["Clue","Spot On"],narrative:"Flo's grey circle for IUD users has been cited as confusing. Spot On was purpose-built for contraception tracking.",ts:"2026-05-13",note:"Baseline"},
+  {p:"P14",e:"chatgpt",c:true, po:2,   s:3.2,u:false,cl:false,h:false,rec:false,competitors:["Clue"],narrative:"Flo offers broader wellness features including sleep and mood tracking, though Clue is seen as more science-focused.",ts:"2026-05-13",note:"Baseline"},
+];
+
+
+const DEMO_RUNS=[
+  // ── Sweep 2 · 2026-05-20 · interview morning · 10 prompts re-run ──────────
+  {p:"P01",e:"chatgpt",c:true, po:1,   s:4.2,u:true, cl:true, h:false,rec:true,
+   competitors:[],
+   narrative:"Flo remains the top recommendation for period tracking. The 80M+ user base and AI-powered cycle predictions are consistently cited as differentiators.",
+   ts:"2026-05-20",note:"Sweep 2"},
+  {p:"P03",e:"chatgpt",c:true, po:1,   s:4.1,u:true, cl:true, h:false,rec:true,
+   competitors:[],
+   narrative:"Flo's pregnancy tracker leads the category with week-by-week guidance and a named medical review board. No meaningful competition cited in this prompt.",
+   ts:"2026-05-20",note:"Sweep 2"},
+  {p:"P04",e:"chatgpt",c:true, po:2,   s:2.9,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo and Clue are both strong options. Clue has a slight historical privacy edge but Flo's data practices have meaningfully improved since the 2021 FTC settlement.",
+   ts:"2026-05-20",note:"Sweep 2 - up from 2.8"},
+  {p:"P05",e:"chatgpt",c:true, po:2,   s:3.1,u:false,cl:false,h:false,rec:false,
+   competitors:["Apple Health"],
+   narrative:"Flo is better for dedicated cycle intelligence and health insights; Apple Health for ecosystem breadth. They serve different primary use cases.",
+   ts:"2026-05-20",note:"Sweep 2 - stable"},
+  {p:"P06",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,
+   competitors:["Balance","Natural Cycles"],
+   narrative:"Balance by Dr. Louise Newson is the leading recommendation for perimenopause. Flo Health is not mentioned in this response.",
+   ts:"2026-05-20",note:"Sweep 2 - gap confirmed. /perimenopause is 404."},
+  {p:"P10",e:"chatgpt",c:true, po:3,   s:1.9,u:false,cl:false,h:false,rec:false,
+   competitors:["Clue","Spot On"],
+   narrative:"For teens, Spot On by Planned Parenthood is purpose-built for adolescent reproductive health. Flo has improved data practices but prior trust concerns still surface in this segment.",
+   ts:"2026-05-20",note:"Sweep 2 - marginal improvement from 1.8"},
+  {p:"P11",e:"chatgpt",c:true, po:2,   s:3.1,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo has made meaningful improvements since FTC action. Anonymous Mode is a genuine privacy innovation and post-FTC practices are now largely acknowledged. The narrative is shifting from concern to cautious endorsement.",
+   ts:"2026-05-20",note:"Sweep 2 - up from 2.9, drift landing"},
+  {p:"P12",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,
+   competitors:["Drip/Euki"],
+   narrative:"Drip and Euki are consistently recommended as most private due to fully on-device storage and open-source architecture. Flo is not cited.",
+   ts:"2026-05-20",note:"Sweep 2 - gap confirmed. Flo will not win this prompt."},
+  {p:"P13",e:"chatgpt",c:true, po:3,   s:2.8,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue","Spot On"],
+   narrative:"Flo for IUD users is functional but the grey-circle documentation has been cited as unclear. Spot On handles contraception tracking more intuitively with dedicated features.",
+   ts:"2026-05-20",note:"Sweep 2 - stable"},
+  {p:"P14",e:"chatgpt",c:true, po:2,   s:3.3,u:false,cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo's wellness features including sleep tracking, mood logging and cycle correlation are more comprehensive than Clue. Solid improvement in how this dimension is framed.",
+   ts:"2026-05-20",note:"Sweep 2 - up from 3.2"},
+
+  // ── Sweep 3 · 2026-05-27 · post-interview · volatile + category re-run ────
+  {p:"P01",e:"chatgpt",c:true, po:1,   s:4.2,u:true, cl:true, h:false,rec:true,
+   competitors:[],
+   narrative:"Flo continues to dominate period tracking recommendations. Eighty million monthly users and a medical review board cited as the primary trust signals.",
+   ts:"2026-05-27",note:"Sweep 3 - stable category anchor"},
+  {p:"P02",e:"chatgpt",c:true, po:1,   s:4.0,u:true, cl:true, h:false,rec:true,
+   competitors:[],
+   narrative:"For cycle tracking beginners, Flo is the standout recommendation. The guided onboarding and plain-language predictions are specifically praised.",
+   ts:"2026-05-27",note:"Sweep 3"},
+  {p:"P03",e:"chatgpt",c:true, po:1,   s:4.1,u:true, cl:true, h:false,rec:true,
+   competitors:[],
+   narrative:"Flo's pregnancy tracker is the most downloaded in the category with robust week-by-week content and named clinical reviewers.",
+   ts:"2026-05-27",note:"Sweep 3 - stable"},
+  {p:"P04",e:"chatgpt",c:true, po:2,   s:3.0,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo's revised privacy practices are increasingly acknowledged. The FTC history is now framed as a resolved issue rather than an ongoing concern. Meaningful narrative shift from sweep 1.",
+   ts:"2026-05-27",note:"Sweep 3 - continued improvement, 2.8 to 2.9 to 3.0"},
+  {p:"P05",e:"chatgpt",c:true, po:2,   s:3.2,u:false,cl:false,h:false,rec:false,
+   competitors:["Apple Health"],
+   narrative:"Flo is the stronger choice for cycle-specific tracking. Apple Health wins on ecosystem integration. These are genuinely complementary rather than competing.",
+   ts:"2026-05-27",note:"Sweep 3 - up from 3.1"},
+  {p:"P06",e:"chatgpt",c:false,po:null,s:null,u:false,cl:false,h:false,rec:false,
+   competitors:["Balance","Natural Cycles"],
+   narrative:"Balance by Dr. Louise Newson remains the clear recommendation. Flo is not mentioned. Gap persists - hub page needed.",
+   ts:"2026-05-27",note:"Sweep 3 - gap persists. /perimenopause still 404."},
+  {p:"P10",e:"chatgpt",c:true, po:3,   s:2.0,u:false,cl:false,h:false,rec:false,
+   competitors:["Spot On","Clue"],
+   narrative:"Teen-specific reproductive health features remain limited in Flo vs Spot On, which was built specifically for adolescent users. Slight positive shift in how Flo's current practices are framed.",
+   ts:"2026-05-27",note:"Sweep 3 - gradual improvement from 1.8 to 1.9 to 2.0"},
+  {p:"P11",e:"chatgpt",c:true, po:2,   s:3.2,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo is safe to use in 2026. Anonymous Mode, dual ISO 27001/27701 certification, and post-quantum cryptography address the main concerns. The FTC settlement was in 2021 and practices have since changed significantly.",
+   ts:"2026-05-27",note:"Sweep 3 - clear upward trend: 2.9 to 3.1 to 3.2. Privacy chronology working."},
+  {p:"P13",e:"chatgpt",c:true, po:2,   s:2.9,u:true, cl:false,h:false,rec:false,
+   competitors:["Clue"],
+   narrative:"Flo's contraception calendar features are clearer than in previous responses. The IUD documentation still has room for improvement but the overall framing has improved.",
+   ts:"2026-05-27",note:"Sweep 3 - improvement from 2.7 to 2.8 to 2.9"},
+];
+const PROMPTS=[
+  {id:"P01",arch:"Category",   label:"Best period tracker app",        status:"green",pos:1,   s:4.2,vol:"stable",  depth:{m:1,u:1,c:1}},
+  {id:"P02",arch:"Category",   label:"Cycle tracking - beginners",     status:"green",pos:1,   s:4.0,vol:"stable",  depth:{m:1,u:1,c:1}},
+  {id:"P03",arch:"Category",   label:"Best pregnancy tracking app",    status:"green",pos:1,   s:4.1,vol:"stable",  depth:{m:1,u:1,c:1}},
+  {id:"P04",arch:"Comparison", label:"Flo vs Clue",                    status:"amber",pos:2,   s:2.8,vol:"variable",depth:{m:1,u:1,c:0}},
+  {id:"P05",arch:"Comparison", label:"Flo vs Apple Health",            status:"amber",pos:2,   s:3.1,vol:"variable",depth:{m:1,u:0,c:0}},
+  {id:"P06",arch:"Vertical",   label:"Best app for perimenopause",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
+  {id:"P07",arch:"Vertical",   label:"PCOS period tracking app",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
+  {id:"P08",arch:"Vertical",   label:"Endometriosis tracking app",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
+  {id:"P09",arch:"Sub-segment",label:"Best free period tracker",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
+  {id:"P10",arch:"Sub-segment",label:"Period tracker for teens",       status:"rose", pos:3,   s:1.8,vol:"volatile", depth:{m:1,u:0,c:0}},
+  {id:"P11",arch:"Attribute",  label:"Is Flo safe to use?",            status:"amber",pos:2,   s:2.9,vol:"volatile", depth:{m:1,u:1,c:0}},
+  {id:"P12",arch:"Attribute",  label:"Most private period tracker",    status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
+  {id:"P13",arch:"Attribute",  label:"Flo for IUD users",              status:"amber",pos:3,   s:2.7,vol:"variable", depth:{m:1,u:1,c:0}},
+  {id:"P14",arch:"Attribute",  label:"Flo wellness features",          status:"amber",pos:2,   s:3.2,vol:"stable",   depth:{m:1,u:0,c:0}},
+];
+const SM={green:{label:"Owned",color:C.green,dim:C.greenDim},amber:{label:"Contested",color:C.amber,dim:C.amberDim},rose:{label:"Negative",color:C.rose,dim:C.roseDim},slate:{label:"Absent",color:C.slate,dim:C.slateDim}};
+const VM={stable:{color:C.green,label:"Stable"},variable:{color:C.amber,label:"Variable"},volatile:{color:C.rose,label:"Volatile"}};
+
+const ENGINES=[
+  {id:"chatgpt",name:"ChatGPT",color:EC.chatgpt,share:62.6,sources:["Wikipedia","Reddit","Forbes"],freshness:"56% past year",floStatus:"Baselined 13 May 2026",note:"Privacy softening. Chronology gap closeable. Recommendation gap active.",actions:["Bing WBT + IndexNow","FAQPage JSON-LD (2.7x lift)","OAI-SearchBot allowed"]},
+  {id:"claude",name:"Claude",color:EC.claude,share:18.5,sources:["NYT","The Atlantic","Economist"],freshness:"36% past year - archival bias",floStatus:"Not yet baselined - URGENT",note:"FTC damage stickier (archival). Primary users 18-24 = Flo core. #2 referral source.",actions:["Run baseline urgently","Legacy journalism placement","Clinical chain: peer-reviewed to Healthline to AI"]},
+  {id:"gemini",name:"Gemini",color:EC.gemini,share:10.6,sources:["Google-indexed","YouTube","Health.gov"],freshness:"Real-time",floStatus:"M2 planned",note:"48% Google searches show AI. Standard SEO is the path.",actions:["Core technical SEO","First-hand experience + multimodal","No llms.txt needed"]},
+  {id:"perplexity",name:"Perplexity",color:EC.perplexity,share:7.3,sources:["Reddit 46.7%","NIH/PubMed","Research"],freshness:"Real-time",floStatus:"M2 planned",note:"Reddit volatile (86% drop possible). Clinical assets highly valued.",actions:["Reddit: r/PCOS r/Perimenopause","/clinical-evidence/ path","YouTube as Reddit backup"]},
+];
+
+const SOV_DATA=[
+  {p:"P01",Flo:65,Clue:20,"Natural Cycles":10,Balance:0,"Spot On":0,"Drip/Euki":5},
+  {p:"P02",Flo:70,Clue:18,"Natural Cycles":8, Balance:0,"Spot On":0,"Drip/Euki":4},
+  {p:"P03",Flo:68,Clue:12,"Natural Cycles":15,Balance:0,"Spot On":0,"Drip/Euki":5},
+  {p:"P04",Flo:48,Clue:48,"Natural Cycles":4, Balance:0,"Spot On":0,"Drip/Euki":0},
+  {p:"P05",Flo:50,Clue:0, "Natural Cycles":0, Balance:0,"Spot On":0,"Drip/Euki":0},
+  {p:"P06",Flo:0, Clue:15,"Natural Cycles":10,Balance:55,"Spot On":0,"Drip/Euki":0},
+  {p:"P07",Flo:0, Clue:10,"Natural Cycles":5, Balance:0, "Spot On":0,"Drip/Euki":0},
+  {p:"P08",Flo:0, Clue:5, "Natural Cycles":5, Balance:0, "Spot On":5,"Drip/Euki":0},
+  {p:"P09",Flo:0, Clue:30,"Natural Cycles":5, Balance:0, "Spot On":15,"Drip/Euki":30},
+  {p:"P10",Flo:20,Clue:20,"Natural Cycles":10,Balance:0, "Spot On":45,"Drip/Euki":5},
+  {p:"P11",Flo:55,Clue:25,"Natural Cycles":10,Balance:0, "Spot On":0,"Drip/Euki":10},
+  {p:"P12",Flo:0, Clue:15,"Natural Cycles":5, Balance:0, "Spot On":0,"Drip/Euki":55},
+  {p:"P13",Flo:45,Clue:25,"Natural Cycles":5, Balance:0, "Spot On":20,"Drip/Euki":5},
+  {p:"P14",Flo:55,Clue:25,"Natural Cycles":15,Balance:0, "Spot On":0,"Drip/Euki":5},
+];
+const BASE_SOV=Math.round(SOV_DATA.reduce((s,d)=>s+(d.Flo||0),0)/SOV_DATA.length);
+
+const EM=[
+  {o:"Healthline",ai:true,flo:false,pri:"H",note:"Cited on PCOS + pregnancy prompts"},
+  {o:"SELF",ai:true,flo:false,pri:"H",note:"Direct comparison content"},
+  {o:"Cosmopolitan",ai:true,flo:true,pri:"H",note:"Featured with privacy caveat"},
+  {o:"The Guardian",ai:true,flo:false,pri:"H",note:"Negative - FTC coverage"},
+  {o:"The Verge",ai:true,flo:false,pri:"H",note:"Negative - data practices"},
+  {o:"Teen Vogue",ai:true,flo:false,pri:"H",note:"Teen safety framing"},
+  {o:"Good Housekeeping",ai:true,flo:false,pri:"M",note:"Product roundup content"},
+  {o:"Women's Health Mag",ai:true,flo:true,pri:"M",note:"Positive coverage"},
+  {o:"r/birthcontrol",ai:true,flo:false,pri:"H",note:"Reddit - not pitched"},
+  {o:"r/PCOS",ai:true,flo:false,pri:"H",note:"Reddit - Flo absent"},
+];
+const PR_OV=Math.round(EM.filter(e=>e.ai&&e.flo).length/EM.filter(e=>e.ai).length*100);
+
+const EC_CHECKS=[
+  {src:"flo.health homepage",field:"Brand name",val:"Flo by Flo Health",ok:true},
+  {src:"App Store listing",field:"Brand name",val:"Flo Period Tracker",ok:false,note:"Suffix varies"},
+  {src:"Google Play listing",field:"Brand name",val:"Flo: Period & Ovulation",ok:false,note:"Different descriptor"},
+  {src:"Wikipedia",field:"MAU",val:"Not updated (old data)",ok:false,note:"May show 35M"},
+  {src:"flo.health schema.org",field:"MAU",val:"35M (outdated)",ok:false,note:"Schema != site (80M+)"},
+  {src:"Wikipedia",field:"Founded",val:"2015",ok:true},
+  {src:"Crunchbase",field:"Founded",val:"2015",ok:true},
+  {src:"LinkedIn company page",field:"Description",val:"Women's health platform",ok:false,note:"Different from homepage"},
+  {src:"App Store",field:"Category",val:"Health & Fitness",ok:true},
+  {src:"Wikidata",field:"Entity",val:"Yes - Q107106283",ok:true},
+];
+const ENT_SCORE=Math.round(EC_CHECKS.filter(e=>e.ok).length/EC_CHECKS.length*100);
+
+const T1=[
+  {l:"Refresh user count (35M to 80M MAU) in schema + Wikipedia",p:"H"},
+  {l:"Fix duplicate WebSite schema tag",p:"H"},
+  {l:"Add FAQPage JSON-LD to /flo-privacy-faqs/ (2.7x citation lift)",p:"H"},
+  {l:"Update privacy FAQ: add 2019-2025 dated chronology",p:"H"},
+  {l:"Add Organization JSON-LD with sameAs (Wikidata, LinkedIn, Crunchbase, App Store)",p:"H"},
+  {l:"Standardise brand name: Flo by Flo Health across App Store, Play Store, schema",p:"H"},
+  {l:"Add llms.txt for Anthropic + IDE tooling only (NOT Google)",p:"H"},
+  {l:"Submit sitemap to Bing WBT + enable IndexNow",p:"H"},
+  {l:"Add Person/author entity schema to health article bylines (E-E-A-T)",p:"H"},
+  {l:"Verify OAI-SearchBot, ClaudeBot, PerplexityBot allowed in robots.txt",p:"H"},
+  {l:"Rewrite grey-circle ovulation help doc (cited verbatim as confusing UX)",p:"M"},
+  {l:"Add Article schema (author, datePublished, dateModified) to health pages",p:"M"},
+  {l:"Add HowTo schema for procedural health content",p:"M"},
+  {l:"Add Android SoftwareApplication schema",p:"M"},
+  {l:"Audit page weight - keep under 2MB",p:"M"},
+  {l:"Add Content Signals to robots.txt (IETF draft)",p:"M"},
+];
+const T2=[
+  {l:"Hub page: /perimenopause - top-level URL",p:"H"},
+  {l:"Hub page: /pcos - top-level URL",p:"H"},
+  {l:"Hub page: /endometriosis - top-level URL",p:"H"},
+  {l:"Hub page: /iud - top-level URL",p:"M"},
+  {l:"Hub page: /trying-to-conceive - top-level URL",p:"M"},
+  {l:"Comparison cornerstone: /flo-vs-clue",p:"H"},
+  {l:"Comparison cornerstone: /flo-vs-apple-health",p:"M"},
+  {l:"Migrate /newsroom/ to /clinical-evidence/",p:"M"},
+  {l:"301 redirects from /menstrual-cycle/* deep paths",p:"M"},
+  {l:"Pitch Mayo Clinic study to Healthline + SELF (AI-cited outlets)",p:"H"},
+  {l:"Pitch endometriosis study to Good Housekeeping, Cosmopolitan",p:"M"},
+];
+
+const SK1="flo-t1",SK2="flo-t2",SK3="flo-runs",SK4="flo-actions";
+const EF={promptId:"P01",engine:"chatgpt",cited:null,position:null,sentiment:3.0,urlCited:false,clickable:false,hallucinated:false,rec:false,competitors:[],narrative:"",date:new Date().toISOString().split("T")[0],note:""};
+
+function App(){
+  const [tab,setTab]=useState("overview");
+  const [sub,setSub]=useState("summary");
+  const [hov,setHov]=useState(null);
+  const [t1done,setT1done]=useState(new Set());
+  const [t2done,setT2done]=useState(new Set());
+  const [loaded,setLoaded]=useState(false);
+  const [runs,setRuns]=useState([]);
+  const [cell,setCell]=useState(null);
+  const [form,setForm]=useState(EF);
+  const [showLog,setShowLog]=useState(false);
+  const [toast,setToast]=useState("");
+  const [engTab,setEngTab]=useState("chatgpt");
+  const [sovV,setSovV]=useState("bar");
+  const [actionLog,setActionLog]=useState({});
+
+  useEffect(()=>{
+    const load=async()=>{
+      try{
+        const r1=await window.storage.get(SK1);
+        const r2=await window.storage.get(SK2);
+        const r3=await window.storage.get(SK3);
+        if(r1?.value)setT1done(new Set(JSON.parse(r1.value)));
+        if(r2?.value)setT2done(new Set(JSON.parse(r2.value)));
+        if(r3?.value)setRuns(JSON.parse(r3.value));
+        const r4=await window.storage.get(SK4);if(r4?.value)setActionLog(JSON.parse(r4.value));
+      }catch(_){}
+      setLoaded(true);
+    };
+    load();
+  },[]);
+  useEffect(()=>{if(!loaded)return;(async()=>{try{await window.storage.set(SK1,JSON.stringify([...t1done]));}catch(_){}})();},[t1done,loaded]);
+  useEffect(()=>{if(!loaded)return;(async()=>{try{await window.storage.set(SK2,JSON.stringify([...t2done]));}catch(_){}})();},[t2done,loaded]);
+  useEffect(()=>{if(!loaded)return;(async()=>{try{await window.storage.set(SK3,JSON.stringify(runs));}catch(_){}})();},[runs,loaded]);
+  useEffect(()=>{if(!loaded)return;(async()=>{try{await window.storage.set(SK4,JSON.stringify(actionLog));}catch(_){}})();},[actionLog,loaded]);
+
+  const tog=(s,i)=>s(p=>{const n=new Set(p);n.has(i)?n.delete(i):n.add(i);return n;});
+  const all=useMemo(()=>[...BASELINE,...DEMO_RUNS,...runs],[runs]);
+  const gr=(p,e)=>all.filter(r=>r.p===p&&r.e===e);
+  const gn=(p,e)=>gr(p,e).length;
+
+  const sweeps=useMemo(()=>{
+    const dates=[...new Set(all.map(r=>r.ts))].sort();
+    return dates.map(d=>{
+      const dr=all.filter(r=>r.ts===d&&r.e==="chatgpt");
+      const cr=dr.filter(r=>r.c);
+      const ss=cr.filter(r=>r.s!=null).map(r=>r.s);
+      return{date:d,n:dr.length,cit:dr.length?Math.round(cr.length/dr.length*100):null,sent:ss.length?parseFloat((ss.reduce((a,b)=>a+b,0)/ss.length).toFixed(1)):null,rec:cr.length?Math.round(cr.filter(r=>r.rec).length/cr.length*100):null};
+    });
+  },[runs.length]);
+
+
+  const monthlyData=useMemo(()=>{
+    const months=[...new Set(sweeps.map(s=>s.date.slice(0,7)))].sort();
+    const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return months.map(mo=>{
+      const ms2=sweeps.filter(s=>s.date.startsWith(mo));
+      const vC=ms2.filter(s=>s.cit!=null),vS=ms2.filter(s=>s.sent!=null),vR=ms2.filter(s=>s.rec!=null);
+      const parts=mo.split("-");
+      const label=MN[parseInt(parts[1])-1]+" "+parts[0];
+      return{mo,label,nSweeps:ms2.length,nRuns:ms2.reduce((s,x)=>s+x.n,0),
+        avgCit:vC.length?Math.round(vC.reduce((s,x)=>s+x.cit,0)/vC.length):null,
+        avgSent:vS.length?parseFloat((vS.reduce((s,x)=>s+parseFloat(x.sent),0)/vS.length).toFixed(1)):null,
+        avgRec:vR.length?Math.round(vR.reduce((s,x)=>s+x.rec,0)/vR.length):null};
+    });
+  },[runs.length]);
+
+  const biggestMovers=useMemo(()=>{
+    return PROMPTS.filter(p=>p.s!=null).map(p=>{
+      const r2=all.filter(x=>x.p===p.id&&x.e==="chatgpt"&&x.c&&x.s!=null);
+      if(r2.length<2)return null;
+      const first=r2[0].s,last=r2[r2.length-1].s,delta=parseFloat((last-first).toFixed(1));
+      return{id:p.id,label:p.label,status:p.status,first,last,delta};
+    }).filter(Boolean).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  },[runs.length]);
+
+  const cd=useMemo(()=>{
+    if(!cell)return null;
+    const r=gr(cell.p,cell.e);
+    if(!r.length)return{runs:[],n:0};
+    const c=r.map(x=>x.c?1:0),ss=r.filter(x=>x.c&&x.s!=null).map(x=>x.s);
+    const rec=r.filter(x=>x.c&&x.rec).length,cited=r.filter(x=>x.c).length;
+    const sov=r.filter(x=>x.c&&x.competitors!=null);
+    const ds=sov.length?Math.round(sov.reduce((s,x)=>s+1/(1+(x.competitors?.length||0)),0)/sov.length*100):null;
+    const narrs=r.filter(x=>x.narrative&&x.narrative.trim()).map(x=>x.narrative);
+    return{runs:r,n:r.length,citCI:bsCI(c),sentCI:ss.length>=2?bsCI(ss):null,cited,urlCited:r.filter(x=>x.c&&x.u&&!x.h).length,hallucs:r.filter(x=>x.c&&x.u&&x.h).length,recRate:cited?Math.round(rec/cited*100):null,dynSoV:ds,narrative:narrs[narrs.length-1]||null};
+  },[cell,runs.length]);
+
+  const getRecRate=(pid,eng)=>{const cr=gr(pid,eng).filter(r=>r.c);return cr.length?Math.round(cr.filter(r=>r.rec).length/cr.length*100):null;};
+  const getNarr=(pid,eng="chatgpt")=>gr(pid,eng).filter(r=>r.narrative?.trim()).at(-1)?.narrative||null;
+
+  const submit=()=>{
+    if(form.cited===null){setToast("Set cited Yes/No first");setTimeout(()=>setToast(""),2500);return;}
+    const run={p:form.promptId,e:form.engine,c:form.cited,po:form.position,s:form.cited?parseFloat(form.sentiment):null,u:form.urlCited,cl:form.clickable,h:form.hallucinated,rec:form.rec,competitors:form.competitors,narrative:form.narrative.trim(),ts:form.date,note:form.note||"Manual run"};
+    setRuns(p=>[...p,run]);
+    setCell({p:form.promptId,e:form.engine});
+    setToast("Run logged");
+    setTimeout(()=>setToast(""),2500);
+    setForm(f=>({...EF,promptId:f.promptId,engine:f.engine,date:f.date}));
+  };
+  const togComp=(b)=>setForm(f=>({...f,competitors:f.competitors.includes(b)?f.competitors.filter(x=>x!==b):[...f.competitors,b]}));
+
+  const cited2=PROMPTS.filter(p=>p.status!=="slate").length;
+  const first2=PROMPTS.filter(p=>p.pos===1).length;
+  const sarr=PROMPTS.filter(p=>p.s!=null).map(p=>p.s);
+  const avgS=(sarr.reduce((a,b)=>a+b,0)/sarr.length).toFixed(1);
+  const ms=useMemo(()=>{let t=all.length,f=0,m=0,h=0,s=0;PROMPTS.forEach(p=>ENGINES.forEach(e=>{const n=gn(p.id,e.id);if(n===1||n===2)f++;else if(n<=6)m++;else if(n<=9)h++;else if(n>=10)s++;}));return{t,f,m,h,s};},[runs.length]);
+
+  const TABS=[{id:"overview",l:"Overview"},{id:"sov",l:"Share of Voice"},{id:"measure",l:"Measurement"},{id:"audit",l:"Site Audit"},{id:"engines",l:"Engines"},{id:"inputs",l:"Input Tracker"},{id:"prompts",l:"Prompts"},{id:"guide",l:"Guide"}];
+
+  const Chip=({c,ch})=><span style={{background:c+"18",color:c,border:"1px solid "+c+"28",fontSize:"9px",fontWeight:700,letterSpacing:"0.1em",padding:"2px 6px",borderRadius:"3px",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>{ch}</span>;
+  const Card=({children,style={}})=><div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:"10px",padding:"20px",...style}}>{children}</div>;
+  const Lbl=({children,c=C.muted})=><div style={{fontSize:"10px",color:c,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"12px"}}>{children}</div>;
+  const PB=({p})=><span style={{fontSize:"9px",fontWeight:700,color:p==="H"?C.rose:C.amber,background:p==="H"?C.roseDim:C.amberDim,border:"1px solid "+(p==="H"?C.rose+"30":C.amber+"30"),borderRadius:"3px",padding:"2px 5px",flexShrink:0}}>{p==="H"?"HIGH":"MED"}</span>;
+  const Callout=({color,icon,title,children})=><div style={{background:color+"12",border:"1px solid "+color+"28",borderRadius:"10px",padding:"14px 18px",display:"flex",gap:"12px",alignItems:"flex-start"}}><span style={{fontSize:"15px",lineHeight:1,flexShrink:0,marginTop:"1px"}}>{icon}</span><div><div style={{fontSize:"10px",fontWeight:700,color,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"5px"}}>{title}</div><div style={{fontSize:"12px",color:C.muted,lineHeight:1.65}}>{children}</div></div></div>;
+  const CRow=({item,done,onClick})=>(
+    <div onClick={onClick} style={{display:"flex",gap:"10px",alignItems:"flex-start",cursor:"pointer",padding:"9px 10px",borderRadius:"7px",background:done?C.greenDim:"transparent",transition:"background 0.15s",userSelect:"none"}}>
+      <div style={{width:"15px",height:"15px",borderRadius:"3px",flexShrink:0,marginTop:"1px",border:"1.5px solid "+(done?C.green:C.borderB),background:done?C.green:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>{done&&<span style={{fontSize:"9px",color:C.bg,fontWeight:700}}>v</span>}</div>
+      <span style={{fontSize:"12px",lineHeight:1.45,flex:1,color:done?C.muted:C.text,textDecoration:done?"line-through":"none"}}>{item.l}</span>
+      <PB p={item.p}/>
+    </div>
+  );
+  const Pill=({id,label})=><button onClick={()=>setSub(id)} style={{padding:"5px 14px",borderRadius:"20px",cursor:"pointer",background:sub===id?C.accent+"20":C.faint,border:"1px solid "+(sub===id?C.accent:C.border),color:sub===id?C.accent:C.muted,fontSize:"12px",fontWeight:600,transition:"all 0.15s"}}>{label}</button>;
+  const TTip=({active,payload,label})=>{if(!active||!payload)return null;return <div style={{background:C.surfaceAlt,border:"1px solid "+C.borderB,borderRadius:"8px",padding:"10px 14px",fontSize:"11px"}}><div style={{fontWeight:600,color:C.text,marginBottom:"6px"}}>{label}</div>{payload.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",gap:"14px",marginBottom:"2px"}}><span style={{color:p.color}}>{p.name}</span><span style={{color:C.text,fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{p.value}{p.value<=100?"%":""}</span></div>)}</div>;};
+  const selE=ENGINES.find(e=>e.id===engTab)||ENGINES[0];
+
+  return(
+    <div style={{fontFamily:"'DM Sans',system-ui,sans-serif",background:C.bg,minHeight:"100vh",color:C.text,padding:"24px 28px 52px"}}>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:"+C.faint+";border-radius:2px}button,select,input,label,textarea{font-family:inherit}input[type=range]{accent-color:"+C.accent+"}"}</style>
+      {toast&&<div style={{position:"fixed",top:"16px",right:"16px",zIndex:100,background:C.green,color:C.bg,padding:"8px 16px",borderRadius:"7px",fontSize:"12px",fontWeight:700}}>{toast}</div>}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"24px",paddingBottom:"20px",borderBottom:"1px solid "+C.border}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
+            <div style={{width:"7px",height:"7px",borderRadius:"50%",background:C.accent,boxShadow:"0 0 12px "+C.accent}}/>
+            <span style={{fontSize:"10px",letterSpacing:"0.18em",textTransform:"uppercase",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>LLMO Dashboard v8 - Sweep Trends - Narrative Patterns</span>
+          </div>
+          <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"32px",fontWeight:700,lineHeight:1.1}}>
+            flo.health <span style={{background:"linear-gradient(120deg,"+C.accent+","+C.lav+")",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>AI Visibility</span>
+          </h1>
+          <div style={{fontSize:"12px",color:C.muted,marginTop:"5px"}}>Valentina D{"'"}Orefice - 14 prompts - baseline 2026-05-13 - {all.length} runs - {sweeps.length} sweep{sweeps.length!==1?"s":""}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px",alignItems:"flex-end"}}>
+          <button style={{background:C.accentDim,border:"1px solid "+C.accent+"40",color:C.accent,padding:"8px 20px",borderRadius:"7px",fontSize:"12px",fontWeight:600,cursor:"pointer"}}>Run Sweep</button>
+          <div style={{display:"flex",gap:"5px",flexWrap:"wrap",justifyContent:"flex-end"}}>
+            {ENGINES.map(e=><span key={e.id} style={{background:e.color+"18",color:e.color,border:"1px solid "+e.color+"28",fontSize:"9px",fontWeight:700,padding:"2px 6px",borderRadius:"3px",fontFamily:"'JetBrains Mono',monospace"}}>{e.name} {e.share}%</span>)}
+          </div>
+          <div style={{fontSize:"10px",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>SoV: {BASE_SOV}% - PR gap: {PR_OV}% - {ms.s} Schulte</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:"2px",marginBottom:"24px",borderBottom:"1px solid "+C.border,overflowX:"auto"}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",cursor:"pointer",padding:"9px 14px",marginBottom:"-1px",color:tab===t.id?C.accent:C.muted,borderBottom:tab===t.id?"2px solid "+C.accent:"2px solid transparent",fontSize:"12px",fontWeight:tab===t.id?600:400,whiteSpace:"nowrap",transition:"color 0.15s"}}>{t.l}</button>)}
+      </div>
+
+      {tab==="overview"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <div style={{display:"flex",gap:"6px"}}>
+            <Pill id="summary" label="Summary"/>
+            <Pill id="heatmap" label="Heatmap"/>
+            <Pill id="funnel" label="Funnel"/>
+            <Pill id="monthly" label="Monthly"/>
+          </div>
+
+          {sub==="summary"&&(<>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"12px"}}>
+              {[{l:"Citation Rate",v:Math.round(cited2/14*100)+"%",s:cited2+"/14 - N=1",t:"Target: 85%",up:true},{l:"First-Named",v:Math.round(first2/14*100)+"%",s:first2+"/14 category",t:"Target: 45%",up:true},{l:"Avg Sentiment",v:avgS,s:"out of 5.0 - N=1",t:"Target >= 3.5",up:true},{l:"Flo SoV",v:BASE_SOV+"%",s:"share of AI mentions",t:"See SoV tab",up:false},{l:"PR-AI Overlap",v:PR_OV+"%",s:"of AI outlets Flo pitches",t:"Industry avg 2%",up:false}].map((k,i)=>(
+                <Card key={i} style={{borderTop:"2px solid "+C.accent+"22"}}>
+                  <Lbl>{k.l}</Lbl>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"26px",fontWeight:400,color:C.text,lineHeight:1,marginBottom:"4px"}}>{k.v}</div>
+                  <div style={{fontSize:"11px",color:C.muted,marginBottom:"8px"}}>{k.s}</div>
+                  <div style={{fontSize:"10px",color:k.up?C.lav:C.rose,fontFamily:"'JetBrains Mono',monospace"}}>{k.t}</div>
+                </Card>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px"}}>
+              <Callout color={C.rose} icon="📊" title="85% of AI citations = earned media - pitch the right outlets">
+                <strong style={{color:C.text}}>What others say about Flo matters more than what Flo says about itself.</strong> Currently {PR_OV}% overlap between PR targets and AI-cited outlets. Healthline, SELF, Good Housekeeping are AI-cited and not pitched.
+              </Callout>
+              <Callout color={C.amber} icon="🎯" title="Mention is not Recommendation">
+                Cited 64% of prompts. Actively <strong style={{color:C.text}}>recommended: 21%</strong>. The gap is the recommendation problem. Narrative patterns in Heatmap hover show where "popular app with privacy history" blocks recommendation.
+              </Callout>
+            </div>
+            <Card>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+                <Lbl>Sweep History - {sweeps.length} sweep{sweeps.length!==1?"s":""} - ChatGPT</Lbl>
+                {sweeps.length>=2?<Chip c={C.green} ch="Trend data available"/>:<Chip c={C.amber} ch="Run sweep 2 to see trends"/>}
+              </div>
+              {sweeps.length>=2&&(
+                <ResponsiveContainer width="100%" height={110} style={{marginBottom:"14px"}}>
+                  <LineChart data={sweeps} margin={{top:0,right:16,left:-28,bottom:0}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                    <XAxis dataKey="date" tick={{fill:C.muted,fontSize:10}}/>
+                    <YAxis tick={{fill:C.muted,fontSize:10}}/>
+                    <Tooltip content={<TTip/>}/>
+                    <Line type="monotone" dataKey="cit" stroke={C.accent} strokeWidth={2} dot={{r:3}} name="Citation %"/>
+                    <Line type="monotone" dataKey="sent" stroke={C.green} strokeWidth={2} dot={{r:3}} name="Avg Sentiment"/>
+                    <Line type="monotone" dataKey="rec" stroke={C.amber} strokeWidth={1.5} strokeDasharray="4 2" dot={{r:3}} name="Rec %"/>
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"1.5fr 0.6fr 0.7fr 0.7fr 0.7fr 1fr",gap:"8px",padding:"6px 10px",fontSize:"10px",color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase",borderBottom:"1px solid "+C.border}}>
+                {["Date","Runs","Cited","Sent","Rec","Trend"].map(h=><span key={h}>{h}</span>)}
+              </div>
+              {sweeps.map((sw,i)=>(
+                <div key={sw.date} style={{display:"grid",gridTemplateColumns:"1.5fr 0.6fr 0.7fr 0.7fr 0.7fr 1fr",gap:"8px",padding:"7px 10px",background:C.surfaceAlt,borderRadius:"6px",marginTop:"4px",alignItems:"center"}}>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.text}}>{sw.date}</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.muted}}>{sw.n}</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:sw.cit!=null?C.text:C.faint}}>{sw.cit!=null?sw.cit+"%":"---"}</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:sw.sent!=null?C.text:C.faint}}>{sw.sent||"---"}</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:sw.rec!=null?C.amber:C.faint}}>{sw.rec!=null?sw.rec+"%":"---"}</span>
+                  <Sparkline data={sweeps.slice(0,i+1).map(s=>s.cit)} color={C.accent}/>
+                </div>
+              ))}
+              {sweeps.length===1&&<div style={{marginTop:"10px",fontSize:"11px",color:C.muted,fontStyle:"italic"}}>Log runs with a different date to create sweep 2. Trend chart appears automatically.</div>}
+            </Card>
+            <Card style={{borderLeft:"3px solid "+C.rose}}>
+              <Lbl c={C.rose}>Monday Morning - 3 highest-leverage actions this week</Lbl>
+              <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                {[
+                  {n:"1",t:"Add FAQPage JSON-LD + Organization schema",why:"2.7x citation lift across ChatGPT/Claude/Perplexity. Zero engineering. Fixes 2 HIGH canaifind findings in one CMS session.",est:"2hrs"},
+                  {n:"2",t:"Publish privacy chronology (2019 to 2025) to /flo-privacy-faqs/",why:"FTC.gov + The Verge still anchor the narrative. flo.health FTC response page already cited - one update enters the same citation set.",est:"3hrs + legal"},
+                  {n:"3",t:"Pitch Mayo Clinic study to Healthline editor",why:"Healthline is AI-cited for PCOS + pregnancy prompts. Currently 0% PR to Healthline. One placement starts the citation chain: journal - Healthline - AI.",est:"1hr"},
+                ].map((a,i)=>(
+                  <div key={i} style={{display:"flex",gap:"12px",alignItems:"flex-start",padding:"12px 14px",background:C.surfaceAlt,borderRadius:"8px"}}>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"18px",fontWeight:700,color:C.rose,flexShrink:0,lineHeight:1,marginTop:"1px"}}>{a.n}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:"13px",fontWeight:600,color:C.text,marginBottom:"4px"}}>{a.t}</div>
+                      <div style={{fontSize:"11px",color:C.muted,lineHeight:1.5}}>{a.why}</div>
+                    </div>
+                    <div style={{fontSize:"10px",color:C.muted,background:C.faint,padding:"3px 8px",borderRadius:"4px",flexShrink:0,fontFamily:"'JetBrains Mono',monospace"}}>{a.est}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>)}
+
+          {sub==="heatmap"&&(<>
+            <Callout color={C.amber} icon="warning" title="N=1 - hover for AI narrative + citation depth. Log runs in Measurement to improve confidence.">
+              Volatile prompts P04 P05 P10 P11 P13 have highest non-determinism. Narrative quotes are from the May 13 baseline.
+            </Callout>
+            <Card>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px",flexWrap:"wrap",gap:"8px"}}>
+                <Lbl>14-Prompt Heatmap - ChatGPT - N=1</Lbl>
+                <div style={{display:"flex",gap:"12px",flexWrap:"wrap"}}>
+                  {Object.entries(SM).map(([k,v])=><div key={k} style={{display:"flex",alignItems:"center",gap:"4px"}}><div style={{width:"8px",height:"8px",borderRadius:"2px",background:v.dim,border:"1px solid "+v.color}}/><span style={{fontSize:"11px",color:C.muted}}>{v.label}</span></div>)}
+                  <div style={{width:"1px",background:C.border}}/>
+                  {Object.entries(VM).map(([k,v])=><div key={k} style={{display:"flex",alignItems:"center",gap:"4px"}}><div style={{width:"6px",height:"6px",borderRadius:"50%",background:v.color}}/><span style={{fontSize:"10px",color:C.muted}}>{v.label}</span></div>)}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"8px"}}>
+                {PROMPTS.map(p=>{
+                  const s=SM[p.status];const hot=hov===p.id;const v=p.vol?VM[p.vol]:null;
+                  const narr=getNarr(p.id);const rr=getRecRate(p.id,"chatgpt");
+                  return(
+                    <div key={p.id} onMouseEnter={()=>setHov(p.id)} onMouseLeave={()=>setHov(null)} style={{background:hot?s.color+"22":s.dim,border:"1px solid "+(hot?s.color:s.color+"40"),borderRadius:"7px",padding:"10px 9px",cursor:"default",transition:"all 0.15s",position:"relative"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:s.color}}>{p.id}</div>
+                        {v&&<div style={{width:"6px",height:"6px",borderRadius:"50%",background:v.color,marginTop:"2px"}}/>}
+                      </div>
+                      <div style={{fontSize:"11px",color:hot?C.text:C.muted,lineHeight:1.35}}>{p.label}</div>
+                      <div style={{fontSize:"9px",color:C.faint,marginTop:"4px",letterSpacing:"0.06em",textTransform:"uppercase"}}>{p.arch}</div>
+                      {hot&&(
+                        <div style={{position:"absolute",top:"calc(100% + 7px)",left:"0",zIndex:30,background:C.surfaceAlt,border:"1px solid "+C.borderB,borderRadius:"7px",padding:"12px 14px",minWidth:"220px",maxWidth:"260px",fontSize:"11px",color:C.text,lineHeight:1.5,boxShadow:"0 12px 32px rgba(7,4,26,0.85)"}}>
+                          <div style={{color:s.color,fontWeight:700,marginBottom:"5px"}}>{s.label}</div>
+                          {p.s!=null&&<div style={{color:C.muted,marginBottom:"2px"}}>Sentiment: <span style={{color:C.text}}>{p.s}/5 - N=1</span></div>}
+                          {p.pos!=null&&<div style={{color:C.muted,marginBottom:"4px"}}>Position: <span style={{color:C.text}}>#{p.pos}</span></div>}
+                          {rr!=null&&<div style={{color:C.amber,marginBottom:"6px",fontWeight:700}}>Rec rate: {rr}%</div>}
+                          {narr&&(
+                            <div style={{marginBottom:"7px",padding:"7px 9px",background:C.faint,borderRadius:"6px",borderLeft:"2px solid "+C.lav}}>
+                              <div style={{fontSize:"9px",color:C.lav,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"3px"}}>AI Narrative</div>
+                              <div style={{fontSize:"10px",color:C.muted,fontStyle:"italic",lineHeight:1.5}}>{narr.length>130?narr.slice(0,130)+"...":narr}</div>
+                            </div>
+                          )}
+                          <div style={{borderTop:"1px solid "+C.border,paddingTop:"5px"}}>
+                            <div style={{fontSize:"9px",color:C.muted,marginBottom:"3px",textTransform:"uppercase"}}>Citation Depth</div>
+                            <div style={{display:"flex",gap:"6px"}}>{[{l:"Mention",v:p.depth.m},{l:"URL",v:p.depth.u},{l:"Clickable",v:p.depth.c}].map(d=><div key={d.l} style={{display:"flex",alignItems:"center",gap:"2px"}}><div style={{width:"6px",height:"6px",borderRadius:"50%",background:d.v?C.accent:C.faint}}/><span style={{fontSize:"9px",color:d.v?C.lav:C.faint}}>{d.l}</span></div>)}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </>)}
+
+          {sub==="funnel"&&(<>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px"}}>
+              {[
+                {l:"LAYER 1",c:C.rose,t:"AI Discovery",ms:[{l:"Citation Rate",v:"64% (N=1)",tc:C.amber},{l:"Rec Rate",v:"21%",tc:C.amber},{l:"Flo SoV",v:BASE_SOV+"%",tc:BASE_SOV>=40?C.green:C.amber},{l:"Engines",v:"1/4 tracked",tc:C.rose}],n:"Expand to 4 engines in M2"},
+                {l:"LAYER 2",c:C.accent,t:"Google Verification",ms:[{l:"Branded clicks GSC",v:"Baseline M1",tc:C.lav},{l:"Hub page impressions",v:"0 (404)",tc:C.rose},{l:"Bing WBT AI citations",v:"Set up needed",tc:C.rose}],n:"GSC + Bing Webmaster Tools"},
+                {l:"LAYER 3",c:C.green,t:"Dark Funnel",ms:[{l:"AI referral sessions",v:"Baseline M1",tc:C.lav},{l:"How did you hear?",v:"Add AI option",tc:C.rose},{l:"Earned media cited",v:"Monitor monthly",tc:C.lav}],n:"GA4 + in-app survey"},
+              ].map((layer,i)=>(
+                <Card key={i} style={{borderTop:"2px solid "+layer.c}}>
+                  <div style={{marginBottom:"8px"}}><Chip c={layer.c} ch={layer.l}/></div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:"19px",fontWeight:700,color:C.text,marginBottom:"12px"}}>{layer.t}</div>
+                  <div style={{borderTop:"1px solid "+C.border,paddingTop:"10px",display:"flex",flexDirection:"column",gap:"9px"}}>
+                    {layer.ms.map((m,j)=><div key={j} style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:"12px",color:C.muted}}>{m.l}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:m.tc}}>{m.v}</span></div>)}
+                  </div>
+                  <div style={{marginTop:"10px",borderTop:"1px solid "+C.border,paddingTop:"8px",fontSize:"11px",color:C.muted,fontStyle:"italic"}}>{layer.n}</div>
+                </Card>
+              ))}
+            </div>
+            <Callout color={C.lav} icon="star" title="Branded Search + Earned Media as proxy metrics">
+              Branded search lift in GSC = AI recommendation proxy. Earned media in AI-cited outlets = 85% of AI citations. These two metrics together tell you whether AI is recommending Flo AND whether the right content is feeding that recommendation.
+            </Callout>
+
+          </>)}
+
+          {sub==="monthly"&&(<>
+            <div style={{background:C.lav+"12",border:"1px solid "+C.lav+"28",borderRadius:"10px",padding:"14px 18px",display:"flex",gap:"12px",alignItems:"flex-start"}}>
+              <span style={{fontSize:"15px",lineHeight:1,flexShrink:0,marginTop:"1px"}}>📅</span>
+              <div>
+                <div style={{fontSize:"10px",fontWeight:700,color:C.lav,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"5px"}}>Monthly Reporting Framework</div>
+                <div style={{fontSize:"12px",color:C.muted,lineHeight:1.65}}>
+                  Run 5 volatile prompts weekly (~20 min). Monthly averages smooth LLM non-determinism — 4 weekly sweeps give you N=4 per prompt, out of false-precision territory.
+                  <strong style={{color:C.text}}> Month-over-month delta is the primary KPI for reporting.</strong> Action log ties content and PR work to metric changes.
+                </div>
+              </div>
+            </div>
+
+            {/* Month-level KPI table */}
+            <div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:"10px",padding:"20px"}}>
+              <div style={{fontSize:"10px",color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"12px"}}>Month-over-Month Summary · ChatGPT</div>
+              {monthlyData.length===0?(
+                <div style={{fontSize:"12px",color:C.muted,fontStyle:"italic",padding:"14px",background:C.faint,borderRadius:"7px",textAlign:"center"}}>No sweep data yet. Log runs to populate.</div>
+              ):(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"1.2fr 0.6fr 0.6fr 0.8fr 0.8fr 0.7fr 2fr",gap:"8px",padding:"6px 10px",fontSize:"10px",color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase",borderBottom:"1px solid "+C.border}}>
+                    {["Month","Sweeps","Runs","Citation","Sentiment","Rec %","vs Prior"].map(h=><span key={h}>{h}</span>)}
+                  </div>
+                  {monthlyData.map((m,i)=>{
+                    const prev=monthlyData[i-1];
+                    const citDelta=prev&&m.avgCit!=null&&prev.avgCit!=null?m.avgCit-prev.avgCit:null;
+                    const sentDelta=prev&&m.avgSent!=null&&prev.avgSent!=null?parseFloat((m.avgSent-prev.avgSent).toFixed(1)):null;
+                    return(
+                      <div key={m.mo} style={{display:"grid",gridTemplateColumns:"1.2fr 0.6fr 0.6fr 0.8fr 0.8fr 0.7fr 2fr",gap:"8px",padding:"8px 10px",background:i%2===0?C.surfaceAlt:C.faint,borderRadius:"6px",marginTop:"4px",alignItems:"center"}}>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",fontWeight:600,color:C.text}}>{m.label}</span>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.muted}}>{m.nSweeps}</span>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.muted}}>{m.nRuns}</span>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:m.avgCit!=null?(m.avgCit>=70?C.green:m.avgCit>=50?C.amber:C.rose):C.faint}}>{m.avgCit!=null?m.avgCit+"%":"---"}</span>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:m.avgSent!=null?(m.avgSent>=3.5?C.green:m.avgSent>=2.5?C.amber:C.rose):C.faint}}>{m.avgSent!=null?m.avgSent:"---"}</span>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:m.avgRec!=null?C.lav:C.faint}}>{m.avgRec!=null?m.avgRec+"%":"---"}</span>
+                        <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+                          {citDelta!=null&&<span style={{fontSize:"10px",fontWeight:700,color:citDelta>0?C.green:citDelta<0?C.rose:C.muted,background:(citDelta>0?C.green:citDelta<0?C.rose:C.muted)+"18",padding:"2px 6px",borderRadius:"4px"}}>{citDelta>0?"+":""}{citDelta}% cit</span>}
+                          {sentDelta!=null&&<span style={{fontSize:"10px",fontWeight:700,color:sentDelta>0?C.green:sentDelta<0?C.rose:C.muted,background:(sentDelta>0?C.green:sentDelta<0?C.rose:C.muted)+"18",padding:"2px 6px",borderRadius:"4px"}}>{sentDelta>0?"+":""}{sentDelta} sent</span>}
+                          {!prev&&<span style={{fontSize:"10px",color:C.muted,fontStyle:"italic"}}>Baseline month</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {monthlyData.length===1&&(
+                    <div style={{marginTop:"10px",padding:"10px 14px",background:C.amberDim,border:"1px solid "+C.amber+"28",borderRadius:"7px",fontSize:"11px",color:C.muted}}>
+                      <strong style={{color:C.amber}}>One month of data.</strong> Run June sweeps to activate month-over-month comparison. Target: 3–4 sweeps in June covering volatile prompts P04 P05 P10 P11 P13.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Biggest movers */}
+            <div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:"10px",padding:"20px"}}>
+              <div style={{fontSize:"10px",color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"12px"}}>Biggest Movers · Sweep 1 to Latest · ChatGPT · Sentiment delta</div>
+              {biggestMovers.length===0?(
+                <div style={{fontSize:"12px",color:C.muted,fontStyle:"italic"}}>Need 2+ runs per prompt to compute movers.</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
+                  {biggestMovers.slice(0,8).map((p,i)=>{
+                    const s=SM[p.status];
+                    return(
+                      <div key={p.id} style={{display:"flex",gap:"10px",alignItems:"center",padding:"8px 12px",background:C.surfaceAlt,borderRadius:"7px"}}>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:s.color,flexShrink:0,minWidth:"32px"}}>{p.id}</span>
+                        <span style={{fontSize:"12px",color:C.text,flex:1}}>{p.label}</span>
+                        <div style={{display:"flex",gap:"8px",alignItems:"center",flexShrink:0}}>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.muted}}>{p.first}</span>
+                          <span style={{color:C.muted,fontSize:"11px"}}>{"->"}</span>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:C.text}}>{p.last}</span>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",fontWeight:700,color:p.delta>0?C.green:p.delta<0?C.rose:C.muted,background:(p.delta>0?C.green:p.delta<0?C.rose:C.muted)+"18",padding:"2px 8px",borderRadius:"4px",minWidth:"50px",textAlign:"center"}}>{p.delta>0?"+":""}{p.delta}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Action log */}
+            <div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:"10px",padding:"20px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+                <div style={{fontSize:"10px",color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase"}}>Action Log — what you published or pitched each month</div>
+                <span style={{fontSize:"10px",color:C.muted,fontStyle:"italic"}}>Tie actions to metric changes</span>
+              </div>
+              <div style={{background:C.lav+"12",border:"1px solid "+C.lav+"28",borderRadius:"8px",padding:"10px 14px",marginBottom:"12px",fontSize:"11px",color:C.muted,lineHeight:1.6}}>
+                <strong style={{color:C.lav}}>How to use: </strong>After each month closes, write what content you published, what you pitched, and what schema changes went live. When next month's metrics arrive, you can see which actions moved which prompts. This is the proof-of-mechanism layer.
+              </div>
+              {monthlyData.length===0?(
+                <div style={{fontSize:"12px",color:C.muted,fontStyle:"italic"}}>No months yet.</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                  {monthlyData.map(m=>(
+                    <div key={m.mo}>
+                      <div style={{fontSize:"11px",fontWeight:600,color:C.text,marginBottom:"5px"}}>{m.label}</div>
+                      <textarea
+                        value={actionLog[m.mo]||""}
+                        onChange={e=>setActionLog(prev=>({...prev,[m.mo]:e.target.value}))}
+                        placeholder={"e.g. Published privacy chronology to /flo-privacy-faqs/. Pitched Mayo Clinic study to Healthline. Added FAQPage JSON-LD."}
+                        style={{width:"100%",background:C.faint,border:"1px solid "+C.borderB,color:C.text,padding:"8px 10px",borderRadius:"7px",fontSize:"12px",minHeight:"55px",resize:"vertical",lineHeight:1.5}}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>)}
+        </div>
+      )}
+
+      {tab==="sov"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <Callout color={C.accent} icon="chart" title="Competitive SoV - Jake Ward/Mentions.so + Muck Rack 2025">
+            SoV = Flo mentions divided by all brand mentions in same response x 100. Baseline: manual May 13 analysis. Log runs with competitor selections to update dynamically. <strong style={{color:C.text}}>85% of AI citations come from earned media. PR gap: {PR_OV}% overlap with AI-cited outlets.</strong>
+          </Callout>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px"}}>
+            {["Category","Comparison","Vertical","Attribute"].map(arch=>{
+              const filtered=SOV_DATA.filter(d=>{const p=PROMPTS.find(x=>x.id===d.p);return p?.arch===arch;});
+              const floV=filtered.length?Math.round(filtered.reduce((s,r)=>s+(r.Flo||0),0)/filtered.length):0;
+              const topC=MAIN_BRANDS.filter(b=>b!=="Flo").map(b=>({b,v:filtered.length?Math.round(filtered.reduce((s,r)=>s+(r[b]||0),0)/filtered.length):0})).sort((a,b)=>b.v-a.v)[0];
+              return(
+                <Card key={arch} style={{borderTop:"2px solid "+C.accent+"22"}}>
+                  <Lbl>{arch}</Lbl>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"28px",fontWeight:400,color:floV>=40?C.green:floV>=20?C.amber:C.rose,lineHeight:1,marginBottom:"4px"}}>{floV}%</div>
+                  <div style={{fontSize:"11px",color:C.muted,marginBottom:"4px"}}>Flo SoV</div>
+                  {topC&&<div style={{fontSize:"11px",color:C.muted}}>Top: <span style={{color:BC[topC.b]||C.muted,fontWeight:600}}>{topC.b} {topC.v}%</span></div>}
+                </Card>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:"6px"}}>
+            {[{id:"bar",l:"Per-Prompt"},{id:"arch",l:"By Archetype"}].map(v=><button key={v.id} onClick={()=>setSovV(v.id)} style={{padding:"6px 14px",borderRadius:"6px",cursor:"pointer",background:sovV===v.id?C.accentDim:C.surfaceAlt,border:"1px solid "+(sovV===v.id?C.accent:C.border),color:sovV===v.id?C.accent:C.muted,fontSize:"12px",fontWeight:600}}>{v.l}</button>)}
+          </div>
+          <Card>
+            <Lbl>SoV {sovV==="bar"?"per prompt":"by archetype"} - ChatGPT baseline N=1</Lbl>
+            <ResponsiveContainer width="100%" height={sovV==="bar"?380:260}>
+              <BarChart
+                data={sovV==="bar"?SOV_DATA.map(d=>({...d,name:d.p})):["Category","Comparison","Vertical","Sub-segment","Attribute"].map(arch=>{const rows=SOV_DATA.filter(d=>{const p=PROMPTS.find(x=>x.id===d.p);return p?.arch===arch;});const agg={name:arch};MAIN_BRANDS.forEach(b=>{agg[b]=rows.length?Math.round(rows.reduce((s,r)=>s+(r[b]||0),0)/rows.length):0});return agg;})}
+                margin={{top:0,right:20,left:-20,bottom:sovV==="bar"?80:10}}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} angle={sovV==="bar"?-45:0} textAnchor={sovV==="bar"?"end":"middle"}/>
+                <YAxis tick={{fill:C.muted,fontSize:10}} unit="%"/>
+                <Tooltip content={<TTip/>}/>
+                <Legend wrapperStyle={{fontSize:"11px",color:C.muted,paddingTop:sovV==="bar"?"36px":"8px"}}/>
+                {MAIN_BRANDS.map(b=><Bar key={b} dataKey={b} stackId="a" fill={BC[b]} opacity={0.9}/>)}
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+          <Card>
+            <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px",flexWrap:"wrap"}}>
+              <Lbl>Earned Media PR Gap</Lbl>
+              <Chip c={C.rose} ch={PR_OV+"% overlap - industry avg 2%"}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1.5fr 0.7fr 0.8fr 0.5fr",gap:"8px",padding:"6px 10px",fontSize:"10px",color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase",borderBottom:"1px solid "+C.border}}>
+              {["Outlet","AI cites","Flo pitches","Pri"].map(h=><span key={h}>{h}</span>)}
+            </div>
+            {EM.map((e,i)=>(
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1.5fr 0.7fr 0.8fr 0.5fr",gap:"8px",padding:"7px 10px",background:i%2===0?C.surfaceAlt:C.faint,borderRadius:"6px",marginTop:"3px",alignItems:"center"}}>
+                <span style={{fontSize:"12px",fontWeight:600,color:C.text}}>{e.o}</span>
+                <span style={{fontSize:"11px",color:e.ai?C.green:C.faint}}>{e.ai?"YES":"---"}</span>
+                <span style={{fontSize:"11px",color:e.flo?C.green:e.ai?C.rose:C.faint}}>{e.flo?"Pitching":e.ai?"Gap":"---"}</span>
+                <PB p={e.pri}/>
+              </div>
+            ))}
+            <div style={{marginTop:"10px",padding:"10px 14px",background:C.roseDim,border:"1px solid "+C.rose+"28",borderRadius:"7px",fontSize:"11px",color:C.muted}}>
+              <strong style={{color:C.rose}}>Action: </strong>Add Healthline, SELF, Good Housekeeping to PR targets for the clinical evidence sprint. These are AI-cited for prompts where Flo is absent.
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab==="measure"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <Callout color={C.accent} icon="📐" title="Schulte et al. 2026 - Do Not Measure Once - N=10 per cell, 2000 bootstrap resamples">
+            Log runs below. Each run records citation, position, sentiment, recommendation, competitors present, and the AI narrative verbatim. Sweep trends update automatically. Volatile prompts P04 P05 P10 P11 P13 should be run N=5 minimum as the next step.
+          </Callout>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px"}}>
+            {[{l:"Total Runs",v:ms.t,s:"logged",c:C.accent},{l:"False Precision",v:ms.f,s:"N=1-2 cells",c:C.rose},{l:"Med Confidence",v:ms.m,s:"N=3-6",c:C.amber},{l:"Schulte N>=10",v:ms.s,s:"compliant cells",c:C.green}].map((k,i)=><Card key={i}><Lbl>{k.l}</Lbl><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"28px",fontWeight:400,color:k.c,lineHeight:1,marginBottom:"4px"}}>{k.v}</div><div style={{fontSize:"11px",color:C.muted}}>{k.s}</div></Card>)}
+          </div>
+          <Card>
+            <Lbl>N-Coverage Matrix - click cell for CI + narrative detail</Lbl>
+            <div style={{overflowX:"auto"}}>
+              <table style={{borderCollapse:"collapse",width:"100%",fontSize:"11px"}}>
+                <thead><tr><th style={{padding:"6px 8px",textAlign:"left",color:C.muted,fontWeight:500,fontSize:"10px",minWidth:"160px"}}>Prompt</th>{ENGINES.map(e=><th key={e.id} style={{padding:"6px 8px",textAlign:"center",color:e.color,fontWeight:600,fontSize:"10px",minWidth:"70px"}}>{e.name}</th>)}</tr></thead>
+                <tbody>{PROMPTS.map(p=>(
+                  <tr key={p.id} style={{borderTop:"1px solid "+C.border+"20"}}>
+                    <td style={{padding:"5px 8px"}}><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:SM[p.status].color,marginRight:"6px"}}>{p.id}</span><span style={{fontSize:"11px",color:C.muted}}>{p.label}</span></td>
+                    {ENGINES.map(e=>{const n=gn(p.id,e.id);const cf=confOf(n);const isSel=cell?.p===p.id&&cell?.e===e.id;return(
+                      <td key={e.id} style={{padding:"4px",textAlign:"center"}}>
+                        <div onClick={()=>setCell(isSel?null:{p:p.id,e:e.id})} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"58px",height:"26px",borderRadius:"5px",cursor:"pointer",background:isSel?e.color+"30":cf.bg,border:"1px solid "+(isSel?e.color:cf.fg+"40"),fontSize:"10px",fontWeight:700,color:cf.fg,fontFamily:"'JetBrains Mono',monospace",transition:"all 0.15s"}}>
+                          {n===0?"---":"N="+n}
+                        </div>
+                      </td>
+                    );})}
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </Card>
+          {cell&&cd&&(
+            <Card style={{borderTop:"2px solid "+(EC[cell.e]||C.accent)}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",flexWrap:"wrap",gap:"8px"}}>
+                <div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:"18px",fontWeight:700,color:C.text}}>{cell.p} - {ENGINES.find(e=>e.id===cell.e)?.name}</div>
+                  <div style={{fontSize:"11px",color:C.muted}}>{PROMPTS.find(p=>p.id===cell.p)?.label}</div>
+                </div>
+                <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                  <span style={{background:confOf(cd.n).bg,color:confOf(cd.n).fg,border:"1px solid "+confOf(cd.n).fg+"28",fontSize:"10px",fontWeight:700,padding:"3px 8px",borderRadius:"5px",fontFamily:"'JetBrains Mono',monospace"}}>{confOf(cd.n).badge}</span>
+                  <button onClick={()=>{setForm(f=>({...f,promptId:cell.p,engine:cell.e}));setShowLog(true);}} style={{background:C.accentDim,border:"1px solid "+C.accent+"40",color:C.accent,padding:"4px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>+ Log run</button>
+                </div>
+              </div>
+              {cd.n===0?(
+                <div style={{fontSize:"12px",color:C.muted,fontStyle:"italic",padding:"14px",background:C.faint,borderRadius:"7px",textAlign:"center"}}>No runs for this cell. Log one above.</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px"}}>
+                    {[
+                      {l:"Citation Rate",v:cd.cited+"/"+cd.n,ci:cd.citCI&&cd.n>=2?"95% CI: ["+Math.round(cd.citCI.lower*100)+"%-"+Math.round(cd.citCI.upper*100)+"%]":cd.n===1?"N=1 - no CI computable":null,c:C.text},
+                      {l:"Sentiment",v:cd.sentCI?cd.sentCI.mean.toFixed(1)+"/5":cd.cited===0?"No cited runs":"Need 2+ cited",ci:cd.sentCI?"CI: ["+cd.sentCI.lower.toFixed(1)+"-"+cd.sentCI.upper.toFixed(1)+"]":null,c:C.text},
+                      {l:"Rec Rate - Dynamic SoV",v:cd.recRate!=null?cd.recRate+"%":"---",ci:cd.dynSoV!=null?"Dynamic SoV: "+cd.dynSoV+"%":null,c:C.amber},
+                    ].map((m,i)=>(
+                      <div key={i} style={{background:C.surfaceAlt,borderRadius:"8px",padding:"12px"}}>
+                        <div style={{fontSize:"10px",color:C.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"6px"}}>{m.l}</div>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"20px",color:m.c,marginBottom:"3px"}}>{m.v}</div>
+                        {m.ci&&<div style={{fontSize:"10px",color:C.muted}}>{m.ci}</div>}
+                        {!m.ci&&i===0&&cd.n===1&&<div style={{fontSize:"10px",color:C.rose}}>Log 2+ more runs for CI</div>}
+                      </div>
+                    ))}
+                  </div>
+                  {cd.narrative&&(
+                    <div style={{padding:"12px 14px",background:C.faint,borderRadius:"8px",borderLeft:"2px solid "+C.lav}}>
+                      <div style={{fontSize:"9px",color:C.lav,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"5px"}}>Latest AI Narrative</div>
+                      <div style={{fontSize:"12px",color:C.text,fontStyle:"italic",lineHeight:1.65}}>"{cd.narrative}"</div>
+                    </div>
+                  )}
+                  <div>
+                    <div style={{fontSize:"10px",color:C.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"6px"}}>Run History</div>
+                    {cd.runs.map((r,i)=>(
+                      <div key={i} style={{display:"flex",gap:"8px",alignItems:"flex-start",padding:"6px 10px",background:C.surfaceAlt,borderRadius:"5px",fontSize:"11px",marginBottom:"3px",flexWrap:"wrap"}}>
+                        <span style={{fontFamily:"'JetBrains Mono',monospace",color:C.muted,fontSize:"10px",flexShrink:0}}>{r.ts}</span>
+                        <span style={{color:r.c?C.green:C.rose,fontWeight:700,flexShrink:0}}>{r.c?"CITED":"ABSENT"}</span>
+                        {r.c&&r.po&&<span style={{color:C.muted}}>{"#"+r.po}</span>}
+                        {r.c&&r.s&&<span style={{color:C.text,fontFamily:"'JetBrains Mono',monospace"}}>s:{r.s}</span>}
+                        {r.c&&r.rec&&<span style={{color:C.green,fontWeight:600}}>REC</span>}
+                        {r.c&&r.competitors?.length>0&&<span style={{color:C.muted}}>vs {r.competitors.join(", ")}</span>}
+                        {r.note&&<span style={{color:C.muted,fontStyle:"italic",fontSize:"10px"}}>{r.note}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+          {showLog?(
+            <Card style={{borderTop:"2px solid "+C.accent}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+                <Lbl>Log a Run</Lbl>
+                <button onClick={()=>setShowLog(false)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:"18px",lineHeight:1}}>x</button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                <div>
+                  <div style={{fontSize:"11px",color:C.muted,marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Prompt</div>
+                  <select value={form.promptId} onChange={e=>setForm(f=>({...f,promptId:e.target.value}))} style={{width:"100%",background:C.surfaceAlt,border:"1px solid "+C.borderB,color:C.text,padding:"8px 10px",borderRadius:"7px",fontSize:"12px"}}>
+                    {PROMPTS.map(p=><option key={p.id} value={p.id}>{p.id} - {p.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:"11px",color:C.muted,marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Engine</div>
+                  <div style={{display:"flex",gap:"5px"}}>{ENGINES.map(e=><button key={e.id} onClick={()=>setForm(f=>({...f,engine:e.id}))} style={{flex:1,padding:"7px",borderRadius:"6px",cursor:"pointer",background:form.engine===e.id?e.color+"25":C.surfaceAlt,border:"1px solid "+(form.engine===e.id?e.color:C.border),color:form.engine===e.id?e.color:C.muted,fontSize:"10px",fontWeight:600}}>{e.name.slice(0,4)}</button>)}</div>
+                </div>
+              </div>
+              <div style={{marginBottom:"12px"}}>
+                <div style={{fontSize:"11px",color:C.muted,marginBottom:"7px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Was Flo cited?</div>
+                <div style={{display:"flex",gap:"8px"}}>{[{v:true,l:"Yes - cited",c:C.green},{v:false,l:"No - absent",c:C.rose}].map(o=><button key={String(o.v)} onClick={()=>setForm(f=>({...f,cited:o.v}))} style={{flex:1,padding:"9px",borderRadius:"7px",cursor:"pointer",background:form.cited===o.v?o.c+"25":C.surfaceAlt,border:"2px solid "+(form.cited===o.v?o.c:C.border),color:form.cited===o.v?o.c:C.muted,fontSize:"12px",fontWeight:600}}>{o.l}</button>)}</div>
+              </div>
+              {form.cited===true&&(
+                <div style={{padding:"12px",background:C.surfaceAlt,borderRadius:"8px",marginBottom:"12px",display:"flex",flexDirection:"column",gap:"10px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                    <div>
+                      <div style={{fontSize:"11px",color:C.muted,marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Position</div>
+                      <div style={{display:"flex",gap:"5px"}}>{[1,2,3,"4+"].map(pos=><button key={pos} onClick={()=>setForm(f=>({...f,position:pos}))} style={{flex:1,padding:"5px",borderRadius:"5px",cursor:"pointer",background:form.position===pos?C.accent+"25":C.faint,border:"1px solid "+(form.position===pos?C.accent:C.border),color:form.position===pos?C.accent:C.muted,fontSize:"11px",fontWeight:600}}>{pos===1?"1st":pos===2?"2nd":pos===3?"3rd":"4+"}</button>)}</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"11px",color:C.muted,marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Sentiment: <span style={{color:C.accent,fontFamily:"'JetBrains Mono',monospace"}}>{parseFloat(form.sentiment).toFixed(1)}</span>/5</div>
+                      <input type="range" min="1" max="5" step="0.1" value={form.sentiment} onChange={e=>setForm(f=>({...f,sentiment:e.target.value}))} style={{width:"100%",marginTop:"4px"}}/>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {[{f:"urlCited",l:"URL cited"},{f:"clickable",l:"Clickable"},{f:"hallucinated",l:"URL hallucinated (404)"},{f:"rec",l:"Actively RECOMMENDED"}].map(t=>(
+                      <button key={t.f} onClick={()=>setForm(f=>({...f,[t.f]:!f[t.f]}))} style={{padding:"5px 10px",borderRadius:"5px",cursor:"pointer",background:form[t.f]?C.accent+"20":C.faint,border:"1px solid "+(form[t.f]?C.accent:C.border),color:form[t.f]?C.accent:C.muted,fontSize:"11px",fontWeight:600}}>
+                        {form[t.f]?"v ":""}{t.l}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{fontSize:"11px",color:C.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Competitors mentioned in response</div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
+                      {COMP_OPTIONS.map(b=>(
+                        <button key={b} onClick={()=>togComp(b)} style={{padding:"4px 8px",borderRadius:"5px",cursor:"pointer",background:form.competitors.includes(b)?BC[b]+"25":C.faint,border:"1px solid "+(form.competitors.includes(b)?BC[b]||C.accent:C.border),color:form.competitors.includes(b)?BC[b]||C.accent:C.muted,fontSize:"11px",transition:"all 0.15s"}}>
+                          {form.competitors.includes(b)?"v ":""}{b}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{fontSize:"10px",color:C.muted,marginTop:"5px",fontStyle:"italic"}}>Selecting competitors updates Share of Voice calculations dynamically.</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:"11px",color:C.muted,marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.08em"}}>AI Narrative - paste or type what the AI said about Flo</div>
+                    <textarea value={form.narrative} onChange={e=>setForm(f=>({...f,narrative:e.target.value}))} placeholder='e.g. Flo is one of the most popular period trackers, though it faced FTC scrutiny over data sharing...' style={{width:"100%",background:C.faint,border:"1px solid "+C.borderB,color:C.text,padding:"8px 10px",borderRadius:"7px",fontSize:"12px",minHeight:"60px",resize:"vertical",lineHeight:1.5}}/>
+                    <div style={{fontSize:"10px",color:C.muted,marginTop:"3px"}}>Appears in heatmap hover and cell detail. Tracks narrative drift over sweeps.</div>
+                  </div>
+                </div>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:"8px",marginBottom:"10px"}}>
+                <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{background:C.surfaceAlt,border:"1px solid "+C.borderB,color:C.text,padding:"7px 10px",borderRadius:"7px",fontSize:"12px"}}/>
+                <input type="text" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="Optional note (after privacy page update etc)" style={{background:C.surfaceAlt,border:"1px solid "+C.borderB,color:C.text,padding:"7px 10px",borderRadius:"7px",fontSize:"12px"}}/>
+              </div>
+              <div style={{display:"flex",gap:"8px"}}>
+                <button onClick={submit} style={{flex:1,background:C.accentDim,border:"1px solid "+C.accent+"40",color:C.accent,padding:"10px",borderRadius:"7px",fontSize:"13px",fontWeight:700,cursor:"pointer"}}>Submit Run</button>
+                <button onClick={()=>{setForm(EF);setShowLog(false);}} style={{padding:"10px 16px",background:"none",border:"1px solid "+C.border,color:C.muted,borderRadius:"7px",fontSize:"12px",cursor:"pointer"}}>Cancel</button>
+              </div>
+            </Card>
+          ):(
+            <button onClick={()=>setShowLog(true)} style={{background:C.accentDim,border:"1px solid "+C.accent+"40",color:C.accent,padding:"12px",borderRadius:"8px",fontSize:"13px",fontWeight:600,cursor:"pointer",width:"100%"}}>+ Log a New Run</button>
+          )}
+        </div>
+      )}
+
+      {tab==="audit"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <div style={{background:C.amberDim,border:"1px solid "+C.amber+"30",borderRadius:"10px",padding:"16px 20px",display:"flex",gap:"16px",alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{textAlign:"center",minWidth:"80px"}}><div style={{fontFamily:"'Playfair Display',serif",fontSize:"28px",fontWeight:700,color:C.amber}}>Partial</div><div style={{fontSize:"10px",color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase"}}>Overall</div></div>
+            <div style={{width:"1px",background:C.border,alignSelf:"stretch"}}/>
+            <div style={{flex:1}}><div style={{fontSize:"13px",color:C.text,marginBottom:"3px",fontWeight:500}}>Some fundamentals in place; high-leverage gaps identified.</div><div style={{fontSize:"11px",color:C.muted}}>canaifind.com/r/mx9KXxXr - Checked 2026-05-27 - All 15 AI crawlers allowed</div></div>
+            {[{l:"Crawlers",s:"PASS",c:C.green},{l:"Schema",s:"PARTIAL",c:C.amber},{l:"Entity",s:ENT_SCORE+"%",c:ENT_SCORE>=80?C.green:C.amber}].map((b,i)=><div key={i} style={{textAlign:"center",padding:"8px 12px",background:b.c+"14",border:"1px solid "+b.c+"28",borderRadius:"7px"}}><div style={{fontSize:"10px",color:C.muted,marginBottom:"2px"}}>{b.l}</div><div style={{fontSize:"11px",fontWeight:700,color:b.c,fontFamily:"'JetBrains Mono',monospace"}}>{b.s}</div></div>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px"}}>
+            {[{s:"11%",l:"ChatGPT + Perplexity citation overlap",c:C.rose},{s:"80%",l:"ChatGPT citations absent from Google top 100",c:C.amber},{s:"r=0.18",l:"DA correlation with AI Overview selection",c:C.lav},{s:"2.7x",l:"FAQPage JSON-LD citation rate lift",c:C.green}].map((m,i)=>(
+              <Card key={i} style={{borderTop:"2px solid "+m.c,padding:"14px"}}>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"22px",fontWeight:500,color:m.c,lineHeight:1,marginBottom:"5px"}}>{m.s}</div>
+                <div style={{fontSize:"11px",color:C.muted,lineHeight:1.4}}>{m.l}</div>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <Lbl>Top Findings - ordered by severity</Lbl>
+            {[
+              {n:1,c:C.rose,sev:"HIGH",t:"No schema.org Organization on homepage",fix:"Add Organization JSON-LD with sameAs (Wikidata, LinkedIn, Crunchbase, App Store, Play Store)."},
+              {n:2,c:C.rose,sev:"HIGH",t:"No FAQPage schema - 2.7x citation lift for non-Google engines",fix:"Add FAQPage JSON-LD to /flo-privacy-faqs/. Q&A must mirror visible page content."},
+              {n:3,c:C.amber,sev:"MED",t:"No llms.txt found",fix:"Ship llms.txt for Anthropic + IDE tooling. NOT for Google or ChatGPT."},
+              {n:4,c:C.amber,sev:"MED",t:"No Person/author schema on health articles",fix:"Add Person JSON-LD to health article bylines - E-E-A-T for YMYL content."},
+              {n:5,c:C.lav,sev:"TIP",t:"No Content Signals in robots.txt",fix:"Add Content-Signal: search=yes, ai-input=yes, ai-train=no (IETF draft)."},
+            ].map((f,i)=>(
+              <div key={i} style={{background:C.surfaceAlt,borderRadius:"8px",padding:"11px 14px",borderLeft:"2px solid "+f.c,marginBottom:"6px"}}>
+                <div style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom:"4px"}}>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:C.muted,flexShrink:0,marginTop:"2px"}}>{"#"+f.n}</span>
+                  <span style={{background:f.c+"18",color:f.c,border:"1px solid "+f.c+"28",fontSize:"9px",fontWeight:700,padding:"2px 6px",borderRadius:"3px",flexShrink:0}}>{f.sev}</span>
+                  <span style={{fontSize:"12px",fontWeight:600,color:C.text}}>{f.t}</span>
+                </div>
+                <div style={{fontSize:"11px",color:f.c,paddingLeft:"36px"}}>{"-> "+f.fix}</div>
+              </div>
+            ))}
+          </Card>
+          <Card>
+            <Lbl>Entity Consistency - {ENT_SCORE}% consistent across platforms</Lbl>
+            <Callout color={C.lav} icon="diamond" title="Why entity consistency drives AI citation confidence">
+              Unlinked brand mentions correlate 3:1 more strongly with AI visibility than anchor links. Inconsistent brand names or outdated MAU counts across Wikipedia, Crunchbase, App Store and LinkedIn fragment entity recognition.
+            </Callout>
+            <div style={{marginTop:"14px",display:"flex",flexDirection:"column",gap:"5px"}}>
+              {EC_CHECKS.map((e,i)=>(
+                <div key={i} style={{display:"flex",gap:"10px",alignItems:"flex-start",padding:"8px 10px",background:C.surfaceAlt,borderRadius:"7px"}}>
+                  <span style={{color:e.ok?C.green:C.rose,fontSize:"12px",flexShrink:0,marginTop:"1px"}}>{e.ok?"ok":"!"}</span>
+                  <div style={{minWidth:"170px",flexShrink:0}}><div style={{fontSize:"11px",fontWeight:600,color:C.text}}>{e.src}</div><div style={{fontSize:"10px",color:C.muted}}>{e.field}</div></div>
+                  <div style={{flex:1,fontSize:"11px",color:C.muted}}>{e.val}</div>
+                  {e.note&&<div style={{fontSize:"10px",color:C.rose,flexShrink:0,maxWidth:"140px"}}>{e.note}</div>}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab==="engines"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <Card>
+            <Lbl>AI Referral Share - Mar-Apr 2026 - Source: Goodie AI Traffic Report</Lbl>
+            <div style={{display:"flex",height:"28px",borderRadius:"6px",overflow:"hidden",gap:"2px",marginBottom:"12px"}}>
+              {ENGINES.map(e=><div key={e.id} style={{flex:e.share,background:e.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:700,color:"#fff",fontFamily:"'JetBrains Mono',monospace",padding:"0 6px",minWidth:"40px"}}>{e.share+"%"}</div>)}
+            </div>
+          </Card>
+          <div style={{display:"flex",gap:"8px"}}>{ENGINES.map(e=><button key={e.id} onClick={()=>setEngTab(e.id)} style={{flex:1,padding:"10px",borderRadius:"8px",cursor:"pointer",background:engTab===e.id?e.color+"25":C.surfaceAlt,border:"1px solid "+(engTab===e.id?e.color:C.border),color:engTab===e.id?e.color:C.muted,fontSize:"12px",fontWeight:600,transition:"all 0.15s"}}><div style={{fontSize:"14px",marginBottom:"2px"}}>{e.id==="chatgpt"?"G":e.id==="claude"?"C":e.id==="gemini"?"G":"P"}</div>{e.name}<div style={{fontSize:"10px",marginTop:"2px",fontFamily:"'JetBrains Mono',monospace"}}>{e.share+"%"}</div></button>)}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px"}}>
+            <Card style={{borderTop:"2px solid "+selE.color}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:"12px"}}>
+                <div><div style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",fontWeight:700,color:C.text}}>{selE.name}</div><div style={{fontSize:"11px",color:C.muted,marginTop:"2px"}}>{selE.freshness}</div></div>
+                <Chip c={selE.id==="chatgpt"?C.green:selE.id==="claude"?C.rose:C.amber} ch={selE.id==="chatgpt"?"BASELINED":selE.id==="claude"?"RUN FIRST":"M2"}/>
+              </div>
+              <div style={{fontSize:"11px",color:C.muted,marginBottom:"8px"}}>Sources: {selE.sources.join(" - ")}</div>
+              <div style={{background:C.surfaceAlt,borderRadius:"7px",padding:"10px",borderLeft:"2px solid "+selE.color,fontSize:"12px",color:C.muted,lineHeight:1.6}}>{selE.note}</div>
+              <div style={{marginTop:"10px",padding:"8px 10px",background:selE.id==="chatgpt"?C.greenDim:selE.id==="claude"?C.roseDim:C.amberDim,borderRadius:"6px",fontSize:"11px",color:selE.id==="chatgpt"?C.green:selE.id==="claude"?C.rose:C.amber,fontFamily:"'JetBrains Mono',monospace"}}>{selE.floStatus}</div>
+            </Card>
+            <Card><Lbl>{"Actions for "+selE.name}</Lbl>{selE.actions.map((a,i)=><div key={i} style={{display:"flex",gap:"8px",padding:"8px 10px",background:C.faint,borderRadius:"6px",marginBottom:"5px"}}><span style={{color:selE.color,fontSize:"11px"}}>{">"}</span><span style={{fontSize:"12px",color:C.muted,lineHeight:1.4}}>{a}</span></div>)}</Card>
+          </div>
+        </div>
+      )}
+
+      {tab==="inputs"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+            {[{l:"Tier 1 - Zero Engineering",done:t1done.size,total:T1.length,c:C.accent},{l:"Tier 2 - Editorial Sprint",done:t2done.size,total:T2.length,c:C.lav}].map((t,i)=>(
+              <Card key={i}><div style={{display:"flex",justifyContent:"space-between",marginBottom:"10px"}}><span style={{fontSize:"12px",color:C.muted}}>{t.l}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"13px",color:t.c}}>{t.done+"/"+t.total}</span></div><div style={{height:"4px",background:C.border,borderRadius:"2px",overflow:"hidden"}}><div style={{height:"100%",width:((t.done/t.total)*100)+"%",background:t.c,borderRadius:"2px",transition:"width 0.3s"}}/></div><div style={{fontSize:"10px",color:C.muted,marginTop:"6px",fontStyle:"italic"}}>{t.done>0?"Progress saved":"Tick items to track progress"}</div></Card>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px"}}>
+            <Card><div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"}}><Chip c={C.accent} ch="TIER 1"/><span style={{fontSize:"13px",fontWeight:600,color:C.text}}>Zero Engineering</span></div><div style={{display:"flex",flexDirection:"column",gap:"4px"}}>{T1.map((item,i)=><CRow key={i} item={item} done={t1done.has(i)} onClick={()=>tog(setT1done,i)}/>)}</div></Card>
+            <Card><div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"}}><Chip c={C.lav} ch="TIER 2"/><span style={{fontSize:"13px",fontWeight:600,color:C.text}}>Editorial Sprint</span></div><div style={{display:"flex",flexDirection:"column",gap:"4px"}}>{T2.map((item,i)=><CRow key={i} item={item} done={t2done.has(i)} onClick={()=>tog(setT2done,i)}/>)}</div></Card>
+          </div>
+        </div>
+      )}
+
+      {tab==="prompts"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+          <Callout color={C.amber} icon="warning" title="N=1 - Rec% is computed from logged runs. Log more runs in Measurement to improve accuracy.">
+            Rec% = percentage of cited runs where Flo was actively recommended. Currently based on single baseline run.
+          </Callout>
+          <Card>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                <thead><tr style={{borderBottom:"1px solid "+C.border}}>{["ID","Arch","Prompt","Status","Pos","Sent","Men","URL","Click","Rec%","Vol"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:"left",color:C.muted,fontWeight:500,fontSize:"10px",letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {PROMPTS.map((p,i)=>{
+                    const s=SM[p.status];const v=p.vol?VM[p.vol]:null;const rr=getRecRate(p.id,"chatgpt");
+                    return(
+                      <tr key={i} style={{borderBottom:"1px solid "+C.border+"20"}}>
+                        <td style={{padding:"8px",fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:s.color}}>{p.id}</td>
+                        <td style={{padding:"8px",color:C.muted,fontSize:"10px"}}>{p.arch}</td>
+                        <td style={{padding:"8px",color:C.text,maxWidth:"175px",fontSize:"11px"}}>{p.label}</td>
+                        <td style={{padding:"8px"}}><span style={{background:s.dim,color:s.color,border:"1px solid "+s.color+"30",fontSize:"9px",padding:"2px 6px",borderRadius:"3px",fontWeight:600,whiteSpace:"nowrap"}}>{s.label}</span></td>
+                        <td style={{padding:"8px",color:C.muted,fontFamily:"'JetBrains Mono',monospace",fontSize:"11px"}}>{p.pos!=null?"#"+p.pos:"---"}</td>
+                        <td style={{padding:"8px",color:p.s!=null?C.text:C.faint,fontFamily:"'JetBrains Mono',monospace",fontSize:"11px"}}>{p.s!=null?p.s:"---"}</td>
+                        {["m","u","c"].map(k=><td key={k} style={{padding:"8px"}}><div style={{width:"8px",height:"8px",borderRadius:"50%",background:p.depth[k]?C.accent:C.faint,border:"1px solid "+(p.depth[k]?C.accent:C.borderB)}}/></td>)}
+                        <td style={{padding:"8px",fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:rr!=null?C.amber:C.faint}}>{rr!=null?rr+"%":"---"}</td>
+                        <td style={{padding:"8px"}}>{v?<span style={{background:v.color+"18",color:v.color,border:"1px solid "+v.color+"28",fontSize:"9px",padding:"2px 5px",borderRadius:"3px",fontWeight:600,whiteSpace:"nowrap"}}>{v.label}</span>:<span style={{color:C.faint,fontSize:"10px"}}>---</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab==="guide"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          <Card>
+            <Lbl>30-Day Plan - No budget. No engineering. Content, schema, URL architecture only.</Lbl>
+            {[
+              {n:"01",t:"Privacy chronology + schema + entity consistency",d:"Days 1-14",c:C.rose,b:"5+ prompts affected. 85% of AI citations = earned media, negative earned coverage is the drag mechanism.",f:"Privacy FAQ chronology + FAQPage JSON-LD + Organization JSON-LD + standardise brand name across App Store/Play Store/schema.",w:"FAQPage = 2.7x lift. Organization = entity disambiguation. Entity consistency fixes 4 inconsistencies that fragment AI brand understanding."},
+              {n:"02",t:"Specialty hub pages + AI-cited PR targets",d:"Days 15-30",c:C.accent,b:"0% SoV on 5 vertical prompts. PR is targeting the wrong journalists - Healthline and SELF are AI-cited but not pitched.",f:"5 hub pages + 2 comparison cornerstones. Pitch Mayo Clinic study to Healthline and SELF specifically.",w:"PR gap: "+PR_OV+"% overlap with AI-cited outlets. Healthline is cited for PCOS + pregnancy prompts. One placement starts the citation chain."},
+              {n:"03",t:"Claude + Perplexity baselines + earned media audit",d:"Month 2",c:C.lav,b:"Claude unbaselined despite #2 referral status. Monthly earned media monitor needed.",f:"Claude baseline (all 14 prompts, N=3). Monthly audit: which outlets AI cites for period tracker, PCOS app, perimenopause app.",w:"11% citation overlap: each engine needs its own baseline. The PR gap compounds across engines."},
+            ].map((s,i)=>(
+              <div key={i} style={{background:C.surfaceAlt,borderRadius:"9px",padding:"18px",borderLeft:"2px solid "+s.c,marginBottom:"10px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:s.c}}>{s.n}</span><span style={{fontSize:"14px",fontWeight:600,color:C.text}}>{s.t}</span></div>
+                  <Chip c={s.c} ch={s.d}/>
+                </div>
+                <div style={{fontSize:"12px",color:C.muted,marginBottom:"7px"}}>{s.b}</div>
+                <div style={{fontSize:"12px",color:C.text,marginBottom:"5px"}}><strong style={{color:s.c}}>Fix: </strong>{s.f}</div>
+                <div style={{fontSize:"12px",color:C.muted}}><strong style={{color:C.muted}}>Why: </strong>{s.w}</div>
+              </div>
+            ))}
+          </Card>
+          <Card>
+            <Lbl>Research Anchors</Lbl>
+            <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
+              {[["Muck Rack 2025","1M+ citations - 85% earned, 2% PR to AI overlap","Jul + Dec 2025"],["AirOps 2025","85% mentions from third-party; mention+citation = 40% repeat likelihood","2025"],["Schulte et al. 2026","Do Not Measure Once - N=10, bootstrap CIs","arxiv:2604.07585"],["Sielinski 2026","Quantifying uncertainty - hallucination exclusion","arxiv:2603.08924"],["canaifind.com v0.1","Static scan - crawlers, schema, headers, entity","2026-05-27"],["Profound 680M citations","11% ChatGPT + Perplexity overlap","2026"]].map(([a,t,r],i)=>(
+                <div key={i} style={{display:"flex",gap:"10px",padding:"8px 11px",background:C.surfaceAlt,borderRadius:"6px"}}>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:C.accent,flexShrink:0,minWidth:"130px",marginTop:"1px"}}>{a}</span>
+                  <div style={{flex:1,fontSize:"11px",color:C.muted}}>{t}</div>
+                  <span style={{fontSize:"10px",color:C.faint,flexShrink:0}}>{r}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:"10px",padding:"10px",background:C.faint,borderRadius:"7px",fontSize:"11px",color:C.muted}}>
+              Pipeline: <strong style={{color:C.accent}}>github.com/ValentinaDorefice/geo-content-pipeline</strong> - 7.90/10 citation potential - $5.56 total
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <div style={{marginTop:"40px",paddingTop:"16px",borderTop:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:C.faint}}>v8.0 - Overview sub-tabs (Summary / Heatmap / Funnel) - Sweep trends - Narrative patterns - Competitor SoV - Monday actions</span>
+        <span style={{fontSize:"11px",color:C.faint}}>Next: Claude + Perplexity + Gemini baselines - Jun 2026</span>
+      </div>
+    </div>
+  );
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
