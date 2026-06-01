@@ -174,20 +174,20 @@ const DEMO_RUNS=[
    ts:"2026-05-27",note:"Sweep 3 - improvement from 2.7 to 2.8 to 2.9"},
 ];
 const PROMPTS=[
-  {id:"P01",arch:"Category",   label:"Best period tracker app",        status:"green",pos:1,   s:4.2,vol:"stable",  depth:{m:1,u:1,c:1}},
-  {id:"P02",arch:"Category",   label:"Cycle tracking - beginners",     status:"green",pos:1,   s:4.0,vol:"stable",  depth:{m:1,u:1,c:1}},
-  {id:"P03",arch:"Category",   label:"Best pregnancy tracking app",    status:"green",pos:1,   s:4.1,vol:"stable",  depth:{m:1,u:1,c:1}},
-  {id:"P04",arch:"Comparison", label:"Flo vs Clue",                    status:"amber",pos:2,   s:2.8,vol:"variable",depth:{m:1,u:1,c:0}},
-  {id:"P05",arch:"Comparison", label:"Flo vs Apple Health",            status:"amber",pos:2,   s:3.1,vol:"variable",depth:{m:1,u:0,c:0}},
-  {id:"P06",arch:"Vertical",   label:"Best app for perimenopause",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
-  {id:"P07",arch:"Vertical",   label:"PCOS period tracking app",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
-  {id:"P08",arch:"Vertical",   label:"Endometriosis tracking app",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
-  {id:"P09",arch:"Sub-segment",label:"Best free period tracker",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
-  {id:"P10",arch:"Sub-segment",label:"Period tracker for teens",       status:"rose", pos:3,   s:1.8,vol:"volatile", depth:{m:1,u:0,c:0}},
-  {id:"P11",arch:"Attribute",  label:"Is Flo safe to use?",            status:"amber",pos:2,   s:2.9,vol:"volatile", depth:{m:1,u:1,c:0}},
-  {id:"P12",arch:"Attribute",  label:"Most private period tracker",    status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0}},
-  {id:"P13",arch:"Attribute",  label:"Flo for IUD users",              status:"amber",pos:3,   s:2.7,vol:"variable", depth:{m:1,u:1,c:0}},
-  {id:"P14",arch:"Attribute",  label:"Flo wellness features",          status:"amber",pos:2,   s:3.2,vol:"stable",   depth:{m:1,u:0,c:0}},
+  {id:"P01",arch:"Category",   label:"Best period tracker app",        status:"green",pos:1,   s:4.2,vol:"stable",  depth:{m:1,u:1,c:1},bidi:"B->E",drift:"None"},
+  {id:"P02",arch:"Category",   label:"Cycle tracking - beginners",     status:"green",pos:1,   s:4.0,vol:"stable",  depth:{m:1,u:1,c:1},bidi:"B->E",drift:"None"},
+  {id:"P03",arch:"Category",   label:"Best pregnancy tracking app",    status:"green",pos:1,   s:4.1,vol:"stable",  depth:{m:1,u:1,c:1},bidi:"B->E",drift:"None"},
+  {id:"P04",arch:"Comparison", label:"Flo vs Clue",                    status:"amber",pos:2,   s:2.8,vol:"variable",depth:{m:1,u:1,c:0},bidi:"B->E",drift:"Shadow Brand"},
+  {id:"P05",arch:"Comparison", label:"Flo vs Apple Health",            status:"amber",pos:2,   s:3.1,vol:"variable",depth:{m:1,u:0,c:0},bidi:"B->E",drift:"Intent"},
+  {id:"P06",arch:"Vertical",   label:"Best app for perimenopause",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0},bidi:"E->B",drift:"Intent"},
+  {id:"P07",arch:"Vertical",   label:"PCOS period tracking app",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0},bidi:"E->B",drift:"Intent"},
+  {id:"P08",arch:"Vertical",   label:"Endometriosis tracking app",     status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0},bidi:"E->B",drift:"Intent"},
+  {id:"P09",arch:"Sub-segment",label:"Best free period tracker",       status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0},bidi:"E->B",drift:"Intent"},
+  {id:"P10",arch:"Sub-segment",label:"Period tracker for teens",       status:"rose", pos:3,   s:1.8,vol:"volatile", depth:{m:1,u:0,c:0},bidi:"B->E",drift:"Latent"},
+  {id:"P11",arch:"Attribute",  label:"Is Flo safe to use?",            status:"amber",pos:2,   s:2.9,vol:"volatile", depth:{m:1,u:1,c:0},bidi:"B->E",drift:"Shadow Brand"},
+  {id:"P12",arch:"Attribute",  label:"Most private period tracker",    status:"slate",pos:null,s:null,vol:null,      depth:{m:0,u:0,c:0},bidi:"E->B",drift:"Intent"},
+  {id:"P13",arch:"Attribute",  label:"Flo for IUD users",              status:"amber",pos:3,   s:2.7,vol:"variable", depth:{m:1,u:1,c:0},bidi:"B->E",drift:"Factual"},
+  {id:"P14",arch:"Attribute",  label:"Flo wellness features",          status:"amber",pos:2,   s:3.2,vol:"stable",   depth:{m:1,u:0,c:0},bidi:"B->E",drift:"Intent"},
 ];
 const SM={green:{label:"Owned",color:C.green,dim:C.greenDim},amber:{label:"Contested",color:C.amber,dim:C.amberDim},rose:{label:"Negative",color:C.rose,dim:C.roseDim},slate:{label:"Absent",color:C.slate,dim:C.slateDim}};
 const VM={stable:{color:C.green,label:"Stable"},variable:{color:C.amber,label:"Variable"},volatile:{color:C.rose,label:"Volatile"}};
@@ -415,7 +415,7 @@ function App(){
         <div>
           <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
             <div style={{width:"7px",height:"7px",borderRadius:"50%",background:C.accent,boxShadow:"0 0 12px "+C.accent}}/>
-            <span style={{fontSize:"10px",letterSpacing:"0.18em",textTransform:"uppercase",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>LLMO Dashboard v8 - Sweep Trends - Narrative Patterns</span>
+            <span style={{fontSize:"10px",letterSpacing:"0.18em",textTransform:"uppercase",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>LLMO Dashboard v9 - Shadow Reputation - B→E/E→B - Brand Drift Matrix</span>
           </div>
           <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"32px",fontWeight:700,lineHeight:1.1}}>
             flo.health <span style={{background:"linear-gradient(120deg,"+C.accent+","+C.lav+")",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>AI Visibility</span>
@@ -456,10 +456,10 @@ function App(){
               ))}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px"}}>
-              <Callout color={C.rose} icon="📊" title="85% of AI citations = earned media - pitch the right outlets">
+              <Callout color={C.rose} icon="📊" title="Shadow Reputation: 85% of AI citations = earned media — pitch the right outlets">
                 <strong style={{color:C.text}}>What others say about Flo matters more than what Flo says about itself.</strong> Currently {PR_OV}% overlap between PR targets and AI-cited outlets. Healthline, SELF, Good Housekeeping are AI-cited and not pitched.
               </Callout>
-              <Callout color={C.amber} icon="🎯" title="Mention is not Recommendation">
+              <Callout color={C.amber} icon="🎯" title="Intent Drift: Mention is not Recommendation">
                 Cited 64% of prompts. Actively <strong style={{color:C.text}}>recommended: 21%</strong>. The gap is the recommendation problem. Narrative patterns in Heatmap hover show where "popular app with privacy history" blocks recommendation.
               </Callout>
             </div>
@@ -495,6 +495,25 @@ function App(){
                 </div>
               ))}
               {sweeps.length===1&&<div style={{marginTop:"10px",fontSize:"11px",color:C.muted,fontStyle:"italic"}}>Log runs with a different date to create sweep 2. Trend chart appears automatically.</div>}
+            </Card>
+            
+            <Card>
+              <Lbl>Three Shadow Reputation Narratives - ChatGPT baseline - N=1</Lbl>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px"}}>
+                {[
+                  {c:C.green, dir:"B->E",label:"B→E Strong",title:"Category Leader",body:"Period, TTC, pregnancy - 3/14 cited first. B→E queries work: when you name Flo, positive responses. Category dominance clear on ChatGPT. Not yet validated on Claude, Gemini, Perplexity."},
+                  {c:C.rose,  dir:"B->E",label:"Shadow Brand Drift",title:"FTC Narrative Active",body:"+0.4 drift on privacy prompts. One FTC settlement, five authoritative outlets, reads as five independent corroborations. Chronology page is the correction mechanism."},
+                  {c:C.slate, dir:"E->B",label:"E→B Failing",title:"Specialist Gap",body:"0% SoV on perimenopause, PCOS, endometriosis. When buyers describe the problem without naming Flo, Flo is absent. Five hub pages + 301 redirects close the gap."},
+                ].map((n,i)=>(
+                  <div key={i} style={{padding:"14px",background:C.surfaceAlt,borderRadius:"8px",borderLeft:"2px solid "+n.c}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"7px",marginBottom:"7px",flexWrap:"wrap"}}>
+                      <span style={{fontSize:"9px",fontWeight:700,background:n.c+"20",color:n.c,border:"1px solid "+n.c+"40",padding:"2px 6px",borderRadius:"3px",fontFamily:"'JetBrains Mono',monospace"}}>{n.label}</span>
+                      <span style={{fontSize:"13px",fontWeight:600,color:C.text}}>{n.title}</span>
+                    </div>
+                    <div style={{fontSize:"12px",color:C.muted,lineHeight:1.6}}>{n.body}</div>
+                  </div>
+                ))}
+              </div>
             </Card>
             <Card style={{borderLeft:"3px solid "+C.rose}}>
               <Lbl c={C.rose}>Monday Morning - 3 highest-leverage actions this week</Lbl>
@@ -557,6 +576,10 @@ function App(){
                           <div style={{borderTop:"1px solid "+C.border,paddingTop:"5px"}}>
                             <div style={{fontSize:"9px",color:C.muted,marginBottom:"3px",textTransform:"uppercase"}}>Citation Depth</div>
                             <div style={{display:"flex",gap:"6px"}}>{[{l:"Mention",v:p.depth.m},{l:"URL",v:p.depth.u},{l:"Clickable",v:p.depth.c}].map(d=><div key={d.l} style={{display:"flex",alignItems:"center",gap:"2px"}}><div style={{width:"6px",height:"6px",borderRadius:"50%",background:d.v?C.accent:C.faint}}/><span style={{fontSize:"9px",color:d.v?C.lav:C.faint}}>{d.l}</span></div>)}</div>
+                            <div style={{marginTop:"5px",display:"flex",gap:"5px",flexWrap:"wrap"}}>
+                              {p.bidi&&<span style={{fontSize:"9px",fontWeight:700,background:p.bidi==="B->E"?C.lav+"20":C.amber+"20",color:p.bidi==="B->E"?C.lav:C.amber,border:"1px solid "+(p.bidi==="B->E"?C.lav+"40":C.amber+"40"),padding:"1px 5px",borderRadius:"3px",fontFamily:"'JetBrains Mono',monospace"}}>{p.bidi==="B->E"?"B→E":"E→B"}</span>}
+                              {p.drift&&p.drift!=="None"&&<span style={{fontSize:"9px",fontWeight:700,background:C.rose+"18",color:C.rose,border:"1px solid "+C.rose+"30",padding:"1px 5px",borderRadius:"3px"}}>{p.drift} Drift</span>}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1015,7 +1038,7 @@ function App(){
           <Card>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-                <thead><tr style={{borderBottom:"1px solid "+C.border}}>{["ID","Arch","Prompt","Status","Pos","Sent","Men","URL","Click","Rec%","Vol"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:"left",color:C.muted,fontWeight:500,fontSize:"10px",letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <thead><tr style={{borderBottom:"1px solid "+C.border}}>{["ID","Arch","Prompt","Status","Pos","Sent","Men","URL","Click","Rec%","Dir","Drift","Vol"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:"left",color:C.muted,fontWeight:500,fontSize:"10px",letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                 <tbody>
                   {PROMPTS.map((p,i)=>{
                     const s=SM[p.status];const v=p.vol?VM[p.vol]:null;const rr=getRecRate(p.id,"chatgpt");
@@ -1061,6 +1084,102 @@ function App(){
             ))}
           </Card>
           <Card>
+            <Lbl>KPI Framework - Three Layers + Dark Demand</Lbl>
+
+            {/* Layer 1 - Entity Health */}
+            <div style={{background:C.lavDim,border:"1px solid "+C.lav+"30",borderRadius:"9px",padding:"14px 16px",marginBottom:"10px"}}>
+              <div style={{fontSize:"11px",fontWeight:700,color:C.lav,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"10px"}}>Layer 0 - Entity Health (Foundation)</div>
+              <div style={{fontSize:"11px",color:C.muted,lineHeight:1.65,marginBottom:"10px"}}>
+                <strong style={{color:C.text}}>Deaure principle:</strong> citations are a symptom of entity health, not a target to game. Fix entity coherence and citations follow. Get the entity wrong and no content strategy compensates.
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                {[
+                  {l:"Entity Consistency Score",v:"58%",t:"Target: 90%+",c:C.rose,note:"Brand name, MAU, category across App Store, Play Store, Wikipedia, schema, Wikidata"},
+                  {l:"Organization sameAs graph",v:"Missing",t:"Add immediately",c:C.rose,note:"Central entity anchor — Wikidata, LinkedIn, Crunchbase, App Store"},
+                  {l:"Cross-model consistency",v:"Not measured",t:"Baseline M1",c:C.amber,note:"Same entity representation across ChatGPT, Claude, Perplexity, Gemini"},
+                ].map((k,i)=>(
+                  <div key={i} style={{background:C.faint,borderRadius:"7px",padding:"10px 12px"}}>
+                    <div style={{fontSize:"10px",color:C.muted,marginBottom:"4px",lineHeight:1.4}}>{k.l}</div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"16px",color:k.c,marginBottom:"3px"}}>{k.v}</div>
+                    <div style={{fontSize:"10px",color:k.c,marginBottom:"4px"}}>{k.t}</div>
+                    <div style={{fontSize:"10px",color:C.faint,lineHeight:1.4}}>{k.note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Layer 1 - Shadow Reputation / Canary Queries */}
+            <div style={{background:C.accentDim,border:"1px solid "+C.accent+"30",borderRadius:"9px",padding:"14px 16px",marginBottom:"10px"}}>
+              <div style={{fontSize:"11px",fontWeight:700,color:C.accent,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"10px"}}>Layer 1 - Shadow Reputation (Canary Queries)</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px"}}>
+                {[
+                  {l:"Citation Rate (B->E prompts)",v:"64%",t:"Target: 85%",c:C.amber},
+                  {l:"First-Named Rate",v:"21%",t:"Target: 45%",c:C.amber},
+                  {l:"Avg Sentiment",v:"2.9/5",t:"Target: 3.5+",c:C.amber},
+                  {l:"E->B Retrieval Rate (vertical prompts)",v:"0/5",t:"Target: 3/5",c:C.rose},
+                  {l:"Negative Framing",v:"33%",t:"Target: <10%",c:C.rose},
+                  {l:"Absence Count",v:"5/14",t:"Target: <2",c:C.rose},
+                ].map((k,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:C.faint,borderRadius:"6px"}}>
+                    <span style={{fontSize:"11px",color:C.muted,flex:1}}>{k.l.replace("B->E","B→E").replace("E->B","E→B")}</span>
+                    <div style={{textAlign:"right",flexShrink:0,marginLeft:"10px"}}>
+                      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:k.c,fontWeight:700}}>{k.v}</div>
+                      <div style={{fontSize:"10px",color:C.faint}}>{k.t}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Layer 2 - Dark Demand */}
+            <div style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:"9px",padding:"14px 16px",marginBottom:"10px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+                <div style={{fontSize:"11px",fontWeight:700,color:C.green,letterSpacing:"0.08em",textTransform:"uppercase"}}>Layer 2 - Dark Demand (Branded Search Proxy)</div>
+                <span style={{fontSize:"9px",background:C.greenDim,color:C.green,border:"1px solid "+C.green+"30",padding:"2px 7px",borderRadius:"3px",fontFamily:"'JetBrains Mono',monospace"}}>Deaure 2026</span>
+              </div>
+              <div style={{fontSize:"11px",color:C.muted,lineHeight:1.65,marginBottom:"10px",padding:"8px 12px",background:C.faint,borderRadius:"7px",borderLeft:"2px solid "+C.green}}>
+                <strong style={{color:C.text}}>The billboard effect:</strong> someone sees Flo in an AI answer, doesn{"'"}t click, searches "Flo app" directly 2 days later. Shows in GSC branded sessions with <strong style={{color:C.text}}>zero AI attribution in GA4.</strong> LLM referrals under 2% of total traffic — if clicks-from-citation is the KPI, you{"'"}re optimising a shrinking channel. Branded search velocity is the signal that captures what GA4 misses entirely.
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                {[
+                  {l:"Branded search sessions (GSC)",v:"Baseline M1",t:"Primary dark demand proxy",c:C.green,note:"Week-over-week velocity. Catches AI billboard effect with zero GA4 attribution."},
+                  {l:"Branded search impression share",v:"Baseline M1",t:"Market awareness signal",c:C.green,note:"Share of 'Flo', 'Flo app', 'Flo period tracker' queries."},
+                  {l:"Non-branded impressions (GSC)",v:"Baseline M1",t:"E->B health indicator",c:C.amber,note:"Rising impressions on 'perimenopause app', 'PCOS tracker' = E→B improving."},
+                ].map((k,i)=>(
+                  <div key={i} style={{background:C.faint,borderRadius:"7px",padding:"10px 12px"}}>
+                    <div style={{fontSize:"10px",color:C.muted,marginBottom:"4px",lineHeight:1.4}}>{k.l}</div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"14px",color:k.c,marginBottom:"3px"}}>{k.v}</div>
+                    <div style={{fontSize:"10px",color:k.c,marginBottom:"4px"}}>{k.t}</div>
+                    <div style={{fontSize:"10px",color:C.faint,lineHeight:1.4}}>{k.note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Layer 3 - Business Outcomes */}
+            <div style={{background:C.amberDim,border:"1px solid "+C.amber+"30",borderRadius:"9px",padding:"14px 16px"}}>
+              <div style={{fontSize:"11px",fontWeight:700,color:C.amber,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"10px"}}>Layer 3 - Business Outcomes</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px"}}>
+                {[
+                  {l:"AI referral sessions + conversion rate",t:"GA4 · baseline M1",note:"Direct but incomplete — ChatGPT + Perplexity don't always pass referrers cleanly"},
+                  {l:"AI-attributed acquisition",t:"GA4 primary · in-app survey secondary",note:"In-app 'How did you hear?' with AI as explicit option closes the attribution gap"},
+                  {l:"Install funnel from AI-cited prompts",t:"E->B prompts → App Store",note:"Track download velocity after hub page publication — perimenopause, PCOS, endo"},
+                  {l:"Action-to-metric tie-back",t:"Monthly Action Log",note:"Which content published or pitched → which canary query metrics moved next month"},
+                ].map((k,i)=>(
+                  <div key={i} style={{padding:"10px 12px",background:C.faint,borderRadius:"7px"}}>
+                    <div style={{fontSize:"12px",fontWeight:600,color:C.text,marginBottom:"3px"}}>{k.l.replace("E->B","E→B")}</div>
+                    <div style={{fontSize:"10px",color:C.amber,marginBottom:"4px"}}>{k.t}</div>
+                    <div style={{fontSize:"11px",color:C.muted,lineHeight:1.45}}>{k.note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginTop:"10px",padding:"10px 14px",background:C.faint,borderRadius:"7px",fontSize:"11px",color:C.muted,lineHeight:1.6}}>
+              <strong style={{color:C.lav}}>Measurement discipline (Schulte 2026): </strong>Current baseline N=1 per prompt — false precision on all Layer 1 metrics. Run 5 volatile prompts (P04, P05, P10, P11, P13) x ChatGPT N=5 each = 25 runs, ~45 min, moves to MED CONFIDENCE. Baseline Claude M1 — most urgent gap (18.5% referral share, unbaselised).
+            </div>
+          </Card>
+          <Card>
             <Lbl>Research Anchors</Lbl>
             <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
               {[["Muck Rack 2025","1M+ citations - 85% earned, 2% PR to AI overlap","Jul + Dec 2025"],["AirOps 2025","85% mentions from third-party; mention+citation = 40% repeat likelihood","2025"],["Schulte et al. 2026","Do Not Measure Once - N=10, bootstrap CIs","arxiv:2604.07585"],["Sielinski 2026","Quantifying uncertainty - hallucination exclusion","arxiv:2603.08924"],["canaifind.com v0.1","Static scan - crawlers, schema, headers, entity","2026-05-27"],["Profound 680M citations","11% ChatGPT + Perplexity overlap","2026"]].map(([a,t,r],i)=>(
@@ -1072,6 +1191,9 @@ function App(){
               ))}
             </div>
             <div style={{marginTop:"10px",padding:"10px",background:C.faint,borderRadius:"7px",fontSize:"11px",color:C.muted}}>
+              Three Research Pillars: <strong style={{color:C.accent}}>Eijkemans (shadow reputation / canary queries / B→E + E→B)</strong> · <strong style={{color:C.lav}}>Jessier (AI Brand Drift matrix / 6 drift types)</strong> · <strong style={{color:C.green}}>Schulte 2026 (N=10, bootstrap CIs)</strong>
+            </div>
+            <div style={{marginTop:"10px",padding:"10px",background:C.faint,borderRadius:"7px",fontSize:"11px",color:C.muted}}>
               Pipeline: <strong style={{color:C.accent}}>github.com/ValentinaDorefice/geo-content-pipeline</strong> - 7.90/10 citation potential - $5.56 total
             </div>
           </Card>
@@ -1079,7 +1201,7 @@ function App(){
       )}
 
       <div style={{marginTop:"40px",paddingTop:"16px",borderTop:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:C.faint}}>v8.0 - Overview sub-tabs (Summary / Heatmap / Funnel) - Sweep trends - Narrative patterns - Competitor SoV - Monday actions</span>
+        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:C.faint}}>v9.0 - Shadow Reputation framework - B→E/E→B taxonomy - Brand Drift types - Three research pillars</span>
         <span style={{fontSize:"11px",color:C.faint}}>Next: Claude + Perplexity + Gemini baselines - Jun 2026</span>
       </div>
     </div>
