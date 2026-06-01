@@ -11,9 +11,9 @@
   <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #07041A; }
+    body { background: #FAFAFA; }
     ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-thumb { background: #1D1838; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb { background: #CFC3FF; border-radius: 2px; }
   </style>
 </head>
 <body>
@@ -46,7 +46,7 @@ const { useState, useEffect, useMemo } = React;
 const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } = Recharts;
 
 
-const C={bg:"#07041A",surface:"#0E0B27",surfaceAlt:"#161235",border:"#231D46",borderB:"#342D60",text:"#EDE8F7",muted:"#7868A8",faint:"#1D1838",accent:"#BE8FFF",accentDim:"rgba(190,143,255,0.14)",green:"#4ADE80",greenDim:"rgba(74,222,128,0.1)",amber:"#FBBF24",amberDim:"rgba(251,191,36,0.1)",rose:"#FF6B8A",roseDim:"rgba(255,107,138,0.12)",slate:"#5B5280",slateDim:"rgba(91,82,128,0.12)",lav:"#C4B5FD",lavDim:"rgba(196,181,253,0.12)"};
+const C={bg:"#FAFAFA",surface:"#FFFFFF",surfaceAlt:"#F5F2FF",border:"#E4DCFF",borderB:"#CFC3FF",text:"#1A1035",muted:"#6B5EA8",faint:"#EDE8FF",accent:"#6D28D9",accentDim:"rgba(109,40,217,0.08)",green:"#15803D",greenDim:"rgba(21,128,61,0.08)",amber:"#B45309",amberDim:"rgba(180,83,9,0.08)",rose:"#BE123C",roseDim:"rgba(190,18,60,0.09)",slate:"#64748B",slateDim:"rgba(100,116,139,0.10)",lav:"#7C3AED",lavDim:"rgba(124,58,237,0.08)"};
 const EC={chatgpt:"#10A37F",claude:"#CC785C",gemini:"#4285F4",perplexity:"#20808D"};
 const BC={"Flo":"#BE8FFF","Clue":"#FF6B8A","Natural Cycles":"#4ADE80","Balance":"#FBBF24","AskPCOS":"#2DD4BF","Phendo":"#818CF8","Spot On":"#FB923C","Drip/Euki":"#94A3B8"};
 const MAIN_BRANDS=["Flo","Clue","Natural Cycles","Balance","Spot On","Drip/Euki"];
@@ -562,7 +562,7 @@ function App(){
                       <div style={{fontSize:"11px",color:hot?C.text:C.muted,lineHeight:1.35}}>{p.label}</div>
                       <div style={{fontSize:"9px",color:C.faint,marginTop:"4px",letterSpacing:"0.06em",textTransform:"uppercase"}}>{p.arch}</div>
                       {hot&&(
-                        <div style={{position:"absolute",top:"calc(100% + 7px)",left:"0",zIndex:30,background:C.surfaceAlt,border:"1px solid "+C.borderB,borderRadius:"7px",padding:"12px 14px",minWidth:"220px",maxWidth:"260px",fontSize:"11px",color:C.text,lineHeight:1.5,boxShadow:"0 12px 32px rgba(7,4,26,0.85)"}}>
+                        <div style={{position:"absolute",top:"calc(100% + 7px)",left:"0",zIndex:30,background:C.surfaceAlt,border:"1px solid "+C.borderB,borderRadius:"7px",padding:"12px 14px",minWidth:"220px",maxWidth:"260px",fontSize:"11px",color:C.text,lineHeight:1.5,boxShadow:"0 8px 24px rgba(109,40,217,0.15),0 2px 8px rgba(0,0,0,0.08)"}}>
                           <div style={{color:s.color,fontWeight:700,marginBottom:"5px"}}>{s.label}</div>
                           {p.s!=null&&<div style={{color:C.muted,marginBottom:"2px"}}>Sentiment: <span style={{color:C.text}}>{p.s}/5 - N=1</span></div>}
                           {p.pos!=null&&<div style={{color:C.muted,marginBottom:"4px"}}>Position: <span style={{color:C.text}}>#{p.pos}</span></div>}
